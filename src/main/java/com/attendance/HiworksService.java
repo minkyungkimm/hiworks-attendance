@@ -81,6 +81,18 @@ public class HiworksService {
         userField.sendKeys(config.getUsername());
         log.info("아이디 입력 완료");
 
+        // 아이디 입력 후 다음 버튼 클릭 (2단계 로그인 대응)
+        try {
+            WebElement nextBtn = wait.until(ExpectedConditions.elementToBeClickable(
+                    By.cssSelector("button[type='submit'], input[type='submit'], .btn-next, .next-btn, button.btn-primary")
+            ));
+            nextBtn.click();
+            log.info("다음 버튼 클릭");
+            pause(1500);
+        } catch (Exception e) {
+            log.debug("다음 버튼 없음 — 단일 페이지 로그인으로 진행");
+        }
+
         // 비밀번호 입력
         WebElement pwField = wait.until(ExpectedConditions.elementToBeClickable(
                 By.cssSelector("input[type='password']")
@@ -98,8 +110,8 @@ public class HiworksService {
             pwField.sendKeys(Keys.ENTER);
         }
 
-        // 로그인 완료 대기 (login URL 에서 벗어날 때까지)
-        wait.until(d -> !d.getCurrentUrl().toLowerCase().contains("login"));
+        // 로그인 완료 대기 (login.office.hiworks.com 에서 벗어날 때까지)
+        wait.until(d -> !d.getCurrentUrl().contains("login.office.hiworks.com"));
 
         log.info("로그인 성공. 현재 URL: {}", driver.getCurrentUrl());
         takeScreenshot("01-login-success");
@@ -134,44 +146,15 @@ public class HiworksService {
     // 출석체크
     // ──────────────────────────────────────────────
 
-    /**
-     * 출근 상태를 확인하고, 미출근이면 체크인 버튼을 클릭한다.
-     * @return 출근 처리 성공 여부
-     */
+    private static final String WORK_PAGE_URL = "https://hr-work.office.hiworks.com/personal/index";
+
     public boolean checkAndDoAttendance() {
-        log.info("출석체크 상태 확인 시작");
+        log.info("근무 페이지 이동: {}", WORK_PAGE_URL);
+        driver.get(WORK_PAGE_URL);
+        pause(2000);
+        takeScreenshot("02-work-page");
 
-        // 현재 페이지(메인 대시보드)에서 먼저 시도
-        if (tryAttendanceOnCurrentPage()) {
-            return true;
-        }
-
-        // 알려진 근태 관련 URL 순서대로 시도
-        String base = config.getHiworksUrl().replaceAll("/$", "");
-        String[] urls = {
-                base + "/work/commuteCheck",
-                base + "/hr/work/",
-                base + "/attendance/",
-                base + "/commute/",
-                base + "/portal/",
-        };
-
-        for (String url : urls) {
-            try {
-                log.info("근태 페이지 접속 시도: {}", url);
-                driver.get(url);
-                pause(2000);
-                if (tryAttendanceOnCurrentPage()) {
-                    return true;
-                }
-            } catch (Exception e) {
-                log.debug("URL 접속 실패 [{}]: {}", url, e.getMessage());
-            }
-        }
-
-        takeScreenshot("attendance-not-found");
-        log.error("출석체크 버튼을 찾지 못했습니다. logs/screenshots 폴더의 스크린샷을 확인하고 HiworksService 의 셀렉터를 조정하세요.");
-        return false;
+        return tryAttendanceOnCurrentPage();
     }
 
     private boolean tryAttendanceOnCurrentPage() {
@@ -217,11 +200,19 @@ public class HiworksService {
     }
 
     private boolean isAlreadyCheckedIn() {
-        // "출근완료" / "출근 완료" / "출근중" 텍스트가 화면에 있으면 이미 체크인된 것
-        List<WebElement> done = driver.findElements(By.xpath(
-                "//*[contains(text(),'출근완료') or contains(text(),'출근 완료') or contains(text(),'출근중')]"
+        // 근무체크 영역에 "근무중" 텍스트가 있으면 이미 출근 처리된 것
+        List<WebElement> working = driver.findElements(By.xpath(
+                "//*[contains(text(),'근무중')]"
         ));
-        return done.stream().anyMatch(WebElement::isDisplayed);
+        if (working.stream().anyMatch(WebElement::isDisplayed)) {
+            return true;
+        }
+        // 근무현황 영역의 "출근" 텍스트로 2차 확인
+        List<WebElement> status = driver.findElements(By.xpath(
+                "//*[contains(text(),'근무현황')]/following-sibling::*//*[contains(text(),'출근')] | " +
+                "//*[contains(text(),'근무현황')]/parent::*//*[contains(text(),'출근')]"
+        ));
+        return status.stream().anyMatch(WebElement::isDisplayed);
     }
 
     private WebElement findCheckInButton() {
