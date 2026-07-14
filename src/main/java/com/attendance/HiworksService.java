@@ -212,20 +212,21 @@ public class HiworksService {
     }
 
     private boolean isAlreadyCheckedOut() {
-        // 근무현황 영역에 "퇴근" 텍스트가 있으면 이미 퇴근 처리된 것
+        // 버튼이 아닌 요소에서 "퇴근" 텍스트 탐색 (퇴근하기 버튼 오감지 방지)
         List<WebElement> status = driver.findElements(By.xpath(
-                "//*[contains(text(),'근무현황')]/following-sibling::*//*[normalize-space(text())='퇴근'] | " +
-                "//*[contains(text(),'근무현황')]/parent::*//*[normalize-space(text())='퇴근']"
+                "//*[normalize-space(text())='퇴근' " +
+                "and not(self::button) " +
+                "and not(ancestor::button) " +
+                "and not(ancestor::*[contains(@class,'btn')])]"
         ));
         return status.stream().anyMatch(WebElement::isDisplayed);
     }
 
     private WebElement findCheckOutButton() {
         String[] xpaths = {
-                "//button[normalize-space(text())='퇴근']",
-                "//button[contains(text(),'퇴근') and not(contains(text(),'완료'))]",
-                "//a[normalize-space(text())='퇴근']",
-                "//span[normalize-space(text())='퇴근']/parent::button",
+                "//button[normalize-space()='퇴근하기']",
+                "//button[contains(.,'퇴근하기')]",
+                "//button[.//span[contains(text(),'퇴근하기')]]",
         };
         for (String xpath : xpaths) {
             WebElement el = findVisible(By.xpath(xpath));
@@ -307,14 +308,11 @@ public class HiworksService {
             if (el != null) return el;
         }
 
-        // 텍스트 기반 XPath (출근 버튼 — 퇴근/완료 텍스트 제외)
+        // 텍스트 기반 XPath
         String[] xpaths = {
-                "//button[normalize-space(text())='출근']",
-                "//button[contains(text(),'출근') and not(contains(text(),'완료')) and not(contains(text(),'퇴근'))]",
-                "//a[normalize-space(text())='출근']",
-                "//a[contains(text(),'출근') and not(contains(text(),'완료'))]",
-                "//span[normalize-space(text())='출근']/parent::button",
-                "//*[contains(@class,'start') and contains(text(),'출근')]",
+                "//button[normalize-space()='출근하기']",
+                "//button[contains(.,'출근하기')]",
+                "//button[.//span[contains(text(),'출근하기')]]",
         };
         for (String xpath : xpaths) {
             WebElement el = findVisible(By.xpath(xpath));
