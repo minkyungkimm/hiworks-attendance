@@ -184,18 +184,29 @@ public class HiworksService {
 
             // 출근 시간 읽기
             LocalTime checkinTime = getCheckinTime();
-            LocalTime targetCheckout = determineCheckoutTime(checkinTime);
 
-            // 스케줄 잡에서 호출된 경우: 이 시간대에 퇴근해야 하는지 확인
-            if (scheduledHour == 17) {
-                if (checkinTime == null || !checkinTime.isBefore(CHECKIN_CUTOFF)) {
-                    log.info("5시 퇴근 조건 미충족 (출근 시간: {}) → 건너뜀", checkinTime);
-                    return false;
-                }
-            } else if (scheduledHour == 18) {
-                if (checkinTime != null && checkinTime.isBefore(CHECKIN_CUTOFF)) {
-                    log.info("6시 퇴근 조건 미충족 (출근 {}→ 5시 퇴근 대상) → 건너뜀", checkinTime);
-                    return false;
+            // 스케줄/모드별 퇴근 시간 결정
+            LocalTime targetCheckout;
+            if (scheduledHour == 0) {
+                // 오후 반차 모드
+                targetCheckout = checkinTime != null && checkinTime.isBefore(CHECKIN_CUTOFF)
+                        ? LocalTime.of(12, 0)   // 8시 출근 → 12:00 퇴근
+                        : LocalTime.of(14, 0);  // 9시 출근 → 14:00 퇴근
+                log.info("오후 반차 모드: 퇴근 가능 시각 {}", targetCheckout);
+            } else {
+                targetCheckout = determineCheckoutTime(checkinTime);
+
+                // 스케줄 잡에서 호출된 경우: 이 시간대에 퇴근해야 하는지 확인
+                if (scheduledHour == 17) {
+                    if (checkinTime == null || !checkinTime.isBefore(CHECKIN_CUTOFF)) {
+                        log.info("5시 퇴근 조건 미충족 (출근 시간: {}) → 건너뜀", checkinTime);
+                        return false;
+                    }
+                } else if (scheduledHour == 18) {
+                    if (checkinTime != null && checkinTime.isBefore(CHECKIN_CUTOFF)) {
+                        log.info("6시 퇴근 조건 미충족 (출근 {}→ 5시 퇴근 대상) → 건너뜀", checkinTime);
+                        return false;
+                    }
                 }
             }
 

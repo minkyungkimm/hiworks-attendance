@@ -23,6 +23,10 @@ public class Main {
                     log.info("[퇴근 모드] 퇴근 체크를 실행합니다.");
                     runCheckout(config);
                     return;
+                case "--halfday-checkout":
+                    log.info("[오후 반차] 반차 퇴근 체크를 실행합니다.");
+                    runHalfdayCheckout(config);
+                    return;
             }
         }
 
@@ -49,6 +53,23 @@ public class Main {
                 log.info("출근 체크 완료!");
             } else {
                 log.warn("출근 체크 실패 — logs/screenshots 폴더를 확인하세요.");
+            }
+        } catch (Exception e) {
+            log.error("오류 발생: {}", e.getMessage(), e);
+        } finally {
+            service.quit();
+        }
+    }
+
+    private static void runHalfdayCheckout(AppConfig config) {
+        HiworksService service = new HiworksService(config);
+        try {
+            service.login();
+            boolean done = service.checkAndDoCheckout(0);
+            if (done) {
+                log.info("오후 반차 퇴근 체크 완료!");
+            } else {
+                log.warn("오후 반차 퇴근 체크 실패 — logs/screenshots 폴더를 확인하세요.");
             }
         } catch (Exception e) {
             log.error("오류 발생: {}", e.getMessage(), e);
