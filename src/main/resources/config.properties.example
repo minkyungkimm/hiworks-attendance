@@ -3,17 +3,29 @@
 # 이 파일을 config.properties 로 복사한 뒤 값을 채우세요.
 # config.properties 는 .gitignore 에 포함되어 있으므로 커밋되지 않습니다.
 # =============================================
-hiworks.url=https://gw.hiworks.com/
-hiworks.company=회사아이디
+hiworks.url=https://login.office.hiworks.com/회사도메인
+hiworks.company=회사도메인
 hiworks.username=아이디
 hiworks.password=비밀번호
 
 # =============================================
-# 출퇴근 스케줄 설정 (Cron 표현식)
-# 형식: 초 분 시 일 월 요일
+# 텔레그램 봇 설정 (선택사항)
+# 봇 토큰: @BotFather 에서 발급
+# 채팅 ID: https://api.telegram.org/bot{토큰}/getUpdates 로 확인
+# 두 값 중 하나라도 비어 있으면 텔레그램 기능 비활성화
 # =============================================
-# 평일(월~금) 오전 9시 정각에 실행
-schedule.cron=0 0 9 ? * MON-FRI
+telegram.bot.token=
+telegram.chat.id=
+
+# =============================================
+# 스케줄 설정 (Cron 표현식: 초 분 시 일 월 요일)
+# =============================================
+# 7시 30분 - "오늘 8시 출근하시나요?" 텔레그램 알림 발송
+schedule.reminder.cron=0 30 7 ? * MON-FRI
+# 8시 출근 자동 체크 (텔레그램에서 "9시"를 선택하면 건너뜀)
+schedule.checkin8.cron=0 0 8 ? * MON-FRI
+# 9시 출근 자동 체크 (텔레그램에서 "9시"를 선택했을 때만 실행)
+schedule.checkin9.cron=0 0 9 ? * MON-FRI
 # 재시도 간격 (초)
 schedule.retry.interval=60
 # 최대 재시도 횟수

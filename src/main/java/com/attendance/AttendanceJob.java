@@ -15,8 +15,25 @@ public class AttendanceJob implements Job {
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
         AppConfig config = (AppConfig) context.getJobDetail().getJobDataMap().get("config");
+        int scheduledHour = context.getJobDetail().getJobDataMap().containsKey("scheduledHour")
+                ? context.getJobDetail().getJobDataMap().getIntValue("scheduledHour")
+                : -1;
 
-        log.info("===== 출석체크 작업 시작 =====");
+        // 텔레그램 응답 기반으로 실행 여부 결정
+        if (scheduledHour == 8 || scheduledHour == 9) {
+            AttendanceState.Decision decision = AttendanceState.get();
+            if (scheduledHour == 8 && decision == AttendanceState.Decision.CHECKIN_9) {
+                log.info("===== 8시 스케줄러 건너뜀 (9시 출근으로 설정됨) =====");
+                return;
+            }
+            if (scheduledHour == 9 && decision != AttendanceState.Decision.CHECKIN_9) {
+                log.info("===== 9시 스케줄러 건너뜀 (현재 상태: {}) =====", decision);
+                return;
+            }
+            log.info("===== 출석체크 작업 시작 ({}시 스케줄, 상태: {}) =====", scheduledHour, decision);
+        } else {
+            log.info("===== 출석체크 작업 시작 =====");
+        }
 
         int attempt = 0;
         while (attempt < config.getRetryMax()) {

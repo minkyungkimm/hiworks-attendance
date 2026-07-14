@@ -7,9 +7,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.Properties;
 
-/**
- * config.properties 파일을 읽어서 설정값을 제공하는 클래스
- */
 public class AppConfig {
 
     private static final Logger log = LoggerFactory.getLogger(AppConfig.class);
@@ -19,28 +16,34 @@ public class AppConfig {
     private final String company;
     private final String username;
     private final String password;
-    private final String scheduleCron;
     private final int retryInterval;
     private final int retryMax;
     private final boolean headless;
+
+    private final String telegramBotToken;
+    private final String telegramChatId;
+    private final String reminderCron;
+    private final String checkin8Cron;
+    private final String checkin9Cron;
 
     private AppConfig(Properties props) {
         this.hiworksUrl = props.getProperty("hiworks.url");
         this.company = props.getProperty("hiworks.company");
         this.username = props.getProperty("hiworks.username");
         this.password = props.getProperty("hiworks.password");
-        this.scheduleCron = props.getProperty("schedule.cron");
         this.retryInterval = Integer.parseInt(props.getProperty("schedule.retry.interval", "60"));
         this.retryMax = Integer.parseInt(props.getProperty("schedule.retry.max", "5"));
         this.headless = Boolean.parseBoolean(props.getProperty("browser.headless", "false"));
+
+        this.telegramBotToken = props.getProperty("telegram.bot.token", "");
+        this.telegramChatId = props.getProperty("telegram.chat.id", "");
+        this.reminderCron = props.getProperty("schedule.reminder.cron", "0 30 7 ? * MON-FRI");
+        this.checkin8Cron = props.getProperty("schedule.checkin8.cron", "0 0 8 ? * MON-FRI");
+        this.checkin9Cron = props.getProperty("schedule.checkin9.cron", "0 0 9 ? * MON-FRI");
     }
 
-    /**
-     * config.properties 파일을 로드해서 AppConfig 객체를 생성한다.
-     */
     public static AppConfig load() throws IOException {
         Properties props = new Properties();
-
         try (InputStream input = AppConfig.class.getClassLoader().getResourceAsStream(CONFIG_FILE)) {
             if (input == null) {
                 throw new IOException("설정 파일을 찾을 수 없습니다: " + CONFIG_FILE);
@@ -48,7 +51,6 @@ public class AppConfig {
             props.load(input);
             log.info("설정 파일 로드 완료");
         }
-
         return new AppConfig(props);
     }
 
@@ -56,8 +58,18 @@ public class AppConfig {
     public String getCompany() { return company; }
     public String getUsername() { return username; }
     public String getPassword() { return password; }
-    public String getScheduleCron() { return scheduleCron; }
     public int getRetryInterval() { return retryInterval; }
     public int getRetryMax() { return retryMax; }
     public boolean isHeadless() { return headless; }
+
+    public String getTelegramBotToken() { return telegramBotToken; }
+    public String getTelegramChatId() { return telegramChatId; }
+    public String getReminderCron() { return reminderCron; }
+    public String getCheckin8Cron() { return checkin8Cron; }
+    public String getCheckin9Cron() { return checkin9Cron; }
+
+    public boolean isTelegramConfigured() {
+        return telegramBotToken != null && !telegramBotToken.isEmpty()
+                && telegramChatId != null && !telegramChatId.isEmpty();
+    }
 }
