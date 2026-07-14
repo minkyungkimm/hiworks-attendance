@@ -151,7 +151,7 @@ public class HiworksService {
     public boolean checkAndDoAttendance() {
         log.info("근무 페이지 이동: {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
-        pause(2000);
+        waitForWorkPageContent();
         takeScreenshot("02-work-page");
 
         return tryAttendanceOnCurrentPage();
@@ -162,7 +162,7 @@ public class HiworksService {
     public boolean checkAndDoCheckout() {
         log.info("근무 페이지 이동 (퇴근): {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
-        pause(2000);
+        waitForWorkPageContent();
         takeScreenshot("02-checkout-page");
 
         try {
@@ -240,6 +240,18 @@ public class HiworksService {
             if (el != null) return el;
         }
         return null;
+    }
+
+    private void waitForWorkPageContent() {
+        // 근무체크 영역(출근하기/퇴근하기)이 나타날 때까지 대기
+        try {
+            wait.until(ExpectedConditions.visibilityOfElementLocated(
+                    By.xpath("//*[contains(.,'출근하기') or contains(.,'퇴근하기') or contains(.,'근무체크')]")
+            ));
+            log.info("근무 페이지 콘텐츠 로드 완료");
+        } catch (Exception e) {
+            log.warn("근무 페이지 콘텐츠 로드 대기 시간 초과 — 그대로 진행");
+        }
     }
 
     private boolean tryAttendanceOnCurrentPage() {
