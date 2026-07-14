@@ -1,0 +1,18 @@
+# 빌드 결과물
+target/
+
+# 민감 정보 (아이디/비밀번호 포함) — 절대 커밋하지 않음
+src/main/resources/config.properties
+
+# IDE
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# 로그 & 스크린샷
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
