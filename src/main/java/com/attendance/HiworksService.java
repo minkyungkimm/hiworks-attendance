@@ -157,6 +157,8 @@ public class HiworksService {
         return tryAttendanceOnCurrentPage();
     }
 
+    private static final int CHECKOUT_HOUR = 18; // 퇴근 허용 시작 시간 (오후 6시)
+
     public boolean checkAndDoCheckout() {
         log.info("근무 페이지 이동 (퇴근): {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
@@ -164,7 +166,7 @@ public class HiworksService {
         takeScreenshot("02-checkout-page");
 
         try {
-            // 이미 퇴근 완료 상태 확인
+            // 근무현황에 이미 퇴근 텍스트가 있으면 중복 퇴근 방지
             if (isAlreadyCheckedOut()) {
                 log.info("이미 퇴근 처리되어 있습니다.");
                 return true;
@@ -173,6 +175,13 @@ public class HiworksService {
             // 출근도 안 된 상태면 퇴근 불가
             if (!isAlreadyCheckedIn()) {
                 log.warn("출근 기록이 없어 퇴근 처리를 할 수 없습니다.");
+                return false;
+            }
+
+            // 오후 6시 이전이면 퇴근 불가
+            int currentHour = java.time.LocalTime.now().getHour();
+            if (currentHour < CHECKOUT_HOUR) {
+                log.warn("현재 시각 {}시 — 오후 {}시 이후에만 퇴근 처리가 가능합니다.", currentHour, CHECKOUT_HOUR);
                 return false;
             }
 
@@ -203,10 +212,12 @@ public class HiworksService {
     }
 
     private boolean isAlreadyCheckedOut() {
-        List<WebElement> els = driver.findElements(By.xpath(
-                "//*[contains(text(),'퇴근완료') or contains(text(),'퇴근 완료')]"
+        // 근무현황 영역에 "퇴근" 텍스트가 있으면 이미 퇴근 처리된 것
+        List<WebElement> status = driver.findElements(By.xpath(
+                "//*[contains(text(),'근무현황')]/following-sibling::*//*[normalize-space(text())='퇴근'] | " +
+                "//*[contains(text(),'근무현황')]/parent::*//*[normalize-space(text())='퇴근']"
         ));
-        return els.stream().anyMatch(WebElement::isDisplayed);
+        return status.stream().anyMatch(WebElement::isDisplayed);
     }
 
     private WebElement findCheckOutButton() {
