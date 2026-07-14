@@ -43,6 +43,19 @@ public class TelegramBotService {
         return instance;
     }
 
+    // 단순 텍스트 메시지 전송
+    public void sendMessage(String text) {
+        try {
+            JSONObject body = new JSONObject();
+            body.put("chat_id", chatId);
+            body.put("text", text);
+            post("/sendMessage", body.toString());
+            log.info("텔레그램 메시지 전송: {}", text);
+        } catch (Exception e) {
+            log.error("텔레그램 메시지 전송 실패: {}", e.getMessage());
+        }
+    }
+
     // 7:30 알림 메시지 전송 + 상태 초기화
     public void sendReminderMessage() {
         try {

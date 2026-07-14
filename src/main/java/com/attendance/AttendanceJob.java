@@ -7,6 +7,8 @@ import org.quartz.JobExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDate;
+
 @DisallowConcurrentExecution
 public class AttendanceJob implements Job {
 
@@ -14,6 +16,11 @@ public class AttendanceJob implements Job {
 
     @Override
     public void execute(JobExecutionContext context) throws JobExecutionException {
+        if (HolidayChecker.isHoliday(LocalDate.now())) {
+            log.info("===== 오늘은 공휴일 - 출근 체크 건너뜀 =====");
+            return;
+        }
+
         AppConfig config = (AppConfig) context.getJobDetail().getJobDataMap().get("config");
         int scheduledHour = context.getJobDetail().getJobDataMap().containsKey("scheduledHour")
                 ? context.getJobDetail().getJobDataMap().getIntValue("scheduledHour")
