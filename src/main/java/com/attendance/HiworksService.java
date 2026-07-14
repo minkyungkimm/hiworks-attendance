@@ -179,9 +179,11 @@ public class HiworksService {
             }
 
             // 오후 6시 이전이면 퇴근 불가
-            int currentHour = java.time.LocalTime.now().getHour();
+            java.time.LocalTime now = java.time.LocalTime.now();
+            int currentHour = now.getHour();
+            int currentMinute = now.getMinute();
             if (currentHour < CHECKOUT_HOUR) {
-                log.warn("현재 시각 {}시 — 오후 {}시 이후에만 퇴근 처리가 가능합니다.", currentHour, CHECKOUT_HOUR);
+                log.warn("현재 시각 {}시 {}분 - 오후 {}시 이후에만 퇴근 처리가 가능합니다.", currentHour, currentMinute, CHECKOUT_HOUR);
                 return false;
             }
 
