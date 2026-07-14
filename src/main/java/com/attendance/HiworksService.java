@@ -15,8 +15,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public class HiworksService {
 
@@ -24,6 +27,13 @@ public class HiworksService {
 
     private static final Duration WAIT = Duration.ofSeconds(20);
     private static final Duration PAGE_LOAD = Duration.ofSeconds(30);
+
+    private static final String WORK_PAGE_URL = "https://hr-work.office.hiworks.com/personal/index";
+
+    // 8:20 이전 출근 → 17:00 퇴근 / 8:20 이후 출근 → 18:00 퇴근
+    private static final LocalTime CHECKIN_CUTOFF  = LocalTime.of(8, 20);
+    private static final LocalTime CHECKOUT_5PM    = LocalTime.of(17, 0);
+    private static final LocalTime CHECKOUT_6PM    = LocalTime.of(18, 0);
 
     private final AppConfig config;
     private WebDriver driver;
@@ -50,7 +60,6 @@ public class HiworksService {
         opts.addArguments("--disable-gpu");
         opts.addArguments("--window-size=1920,1080");
         opts.addArguments("--lang=ko-KR");
-        // 자동화 감지 우회
         opts.addArguments("--disable-blink-features=AutomationControlled");
         opts.setExperimentalOption("excludeSwitches", List.of("enable-automation"));
         opts.setExperimentalOption("useAutomationExtension", false);
@@ -70,10 +79,8 @@ public class HiworksService {
         log.info("하이웍스 접속: {}", config.getHiworksUrl());
         driver.get(config.getHiworksUrl());
 
-        // 회사 도메인 입력 (첫 번째 단계)
         inputCompanyIfPresent();
 
-        // 아이디 입력
         WebElement userField = wait.until(ExpectedConditions.elementToBeClickable(
                 By.cssSelector("input[name='user_id'], #user_id, input[name='id'], input[placeholder*='아이디'], input[placeholder*='ID']")
         ));
@@ -81,7 +88,6 @@ public class HiworksService {
         userField.sendKeys(config.getUsername());
         log.info("아이디 입력 완료");
 
-        // 아이디 입력 후 다음 버튼 클릭 (2단계 로그인 대응)
         try {
             WebElement nextBtn = wait.until(ExpectedConditions.elementToBeClickable(
                     By.cssSelector("button[type='submit'], input[type='submit'], .btn-next, .next-btn, button.btn-primary")
@@ -93,7 +99,6 @@ public class HiworksService {
             log.debug("다음 버튼 없음 — 단일 페이지 로그인으로 진행");
         }
 
-        // 비밀번호 입력
         WebElement pwField = wait.until(ExpectedConditions.elementToBeClickable(
                 By.cssSelector("input[type='password']")
         ));
@@ -101,7 +106,6 @@ public class HiworksService {
         pwField.sendKeys(config.getPassword());
         log.info("비밀번호 입력 완료");
 
-        // 로그인 버튼 클릭 (없으면 Enter)
         try {
             driver.findElement(By.cssSelector(
                     "button[type='submit'], input[type='submit'], .login-btn, #btnLogin, .btn-login"
@@ -110,9 +114,7 @@ public class HiworksService {
             pwField.sendKeys(Keys.ENTER);
         }
 
-        // 로그인 완료 대기 (login.office.hiworks.com 에서 벗어날 때까지)
         wait.until(d -> !d.getCurrentUrl().contains("login.office.hiworks.com"));
-
         log.info("로그인 성공. 현재 URL: {}", driver.getCurrentUrl());
         takeScreenshot("01-login-success");
     }
@@ -128,7 +130,6 @@ public class HiworksService {
                 fields.get(0).sendKeys(config.getCompany());
                 log.info("회사 도메인 입력: {}", config.getCompany());
 
-                // 다음 단계 버튼이 있으면 클릭
                 List<WebElement> nextBtns = driver.findElements(By.cssSelector(
                         "button[type='submit'], .btn-next, .btn-confirm, .next-btn"
                 ));
@@ -146,48 +147,66 @@ public class HiworksService {
     // 출석체크
     // ──────────────────────────────────────────────
 
-    private static final String WORK_PAGE_URL = "https://hr-work.office.hiworks.com/personal/index";
-
     public boolean checkAndDoAttendance() {
         log.info("근무 페이지 이동: {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
         waitForWorkPageContent();
         takeScreenshot("02-work-page");
-
         return tryAttendanceOnCurrentPage();
     }
 
-    private static final int CHECKOUT_HOUR = 18; // 퇴근 허용 시작 시간 (오후 6시)
+    // ──────────────────────────────────────────────
+    // 퇴근체크
+    // ──────────────────────────────────────────────
 
+    // 수동 실행 (run-checkout.bat): 스케줄 시간 체크 없이 동적 퇴근 시간 적용
     public boolean checkAndDoCheckout() {
+        return checkAndDoCheckout(-1);
+    }
+
+    // 자동 실행 (CheckoutJob): scheduledHour(17 또는 18)에 따라 실행 여부 판단
+    public boolean checkAndDoCheckout(int scheduledHour) {
         log.info("근무 페이지 이동 (퇴근): {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
         waitForWorkPageContent();
         takeScreenshot("02-checkout-page");
 
         try {
-            // 근무현황에 이미 퇴근 텍스트가 있으면 중복 퇴근 방지
             if (isAlreadyCheckedOut()) {
                 log.info("이미 퇴근 처리되어 있습니다.");
                 return true;
             }
 
-            // 출근도 안 된 상태면 퇴근 불가
             if (!isAlreadyCheckedIn()) {
                 log.warn("출근 기록이 없어 퇴근 처리를 할 수 없습니다.");
                 return false;
             }
 
-            // 오후 6시 이전이면 퇴근 불가
-            java.time.LocalTime now = java.time.LocalTime.now();
-            int currentHour = now.getHour();
-            int currentMinute = now.getMinute();
-            if (currentHour < CHECKOUT_HOUR) {
-                log.warn("현재 시각 {}시 {}분 - 오후 {}시 이후에만 퇴근 처리가 가능합니다.", currentHour, currentMinute, CHECKOUT_HOUR);
+            // 출근 시간 읽기
+            LocalTime checkinTime = getCheckinTime();
+            LocalTime targetCheckout = determineCheckoutTime(checkinTime);
+
+            // 스케줄 잡에서 호출된 경우: 이 시간대에 퇴근해야 하는지 확인
+            if (scheduledHour == 17) {
+                if (checkinTime == null || !checkinTime.isBefore(CHECKIN_CUTOFF)) {
+                    log.info("5시 퇴근 조건 미충족 (출근 시간: {}) → 건너뜀", checkinTime);
+                    return false;
+                }
+            } else if (scheduledHour == 18) {
+                if (checkinTime != null && checkinTime.isBefore(CHECKIN_CUTOFF)) {
+                    log.info("6시 퇴근 조건 미충족 (출근 {}→ 5시 퇴근 대상) → 건너뜀", checkinTime);
+                    return false;
+                }
+            }
+
+            // 현재 시각이 퇴근 가능 시간인지 확인
+            LocalTime now = LocalTime.now();
+            if (now.isBefore(targetCheckout)) {
+                log.warn("현재 시각 {}시 {}분 - 퇴근 가능 시각은 {}입니다.",
+                        now.getHour(), now.getMinute(), targetCheckout);
                 return false;
             }
 
-            // 퇴근 버튼 탐색
             WebElement btn = findCheckOutButton();
             if (btn == null) {
                 takeScreenshot("checkout-btn-not-found");
@@ -213,16 +232,70 @@ public class HiworksService {
         }
     }
 
+    // ──────────────────────────────────────────────
+    // 출근 시간 읽기
+    // ──────────────────────────────────────────────
+
+    public LocalTime getCheckinTime() {
+        try {
+            Pattern timePattern = Pattern.compile("\\b([0-1]?[0-9]):([0-5][0-9])\\b");
+            String pageText = driver.findElement(By.tagName("body")).getText();
+            String[] lines = pageText.split("[\\n\\r]+");
+
+            for (int i = 0; i < lines.length; i++) {
+                String line = lines[i].trim();
+                // "출근"이 있고 "퇴근"/"하기"는 없는 줄 → 출근 기록 행
+                if (line.contains("출근") && !line.contains("퇴근") && !line.contains("하기")) {
+                    // 현재 줄 + 다음 2줄 범위에서 시간 찾기
+                    for (int j = i; j <= Math.min(i + 2, lines.length - 1); j++) {
+                        Matcher m = timePattern.matcher(lines[j]);
+                        while (m.find()) {
+                            int hour   = Integer.parseInt(m.group(1));
+                            int minute = Integer.parseInt(m.group(2));
+                            if (hour >= 5 && hour <= 12) { // 출근 가능한 시간대
+                                LocalTime t = LocalTime.of(hour, minute);
+                                log.info("출근 시간 감지: {}", t);
+                                return t;
+                            }
+                        }
+                    }
+                }
+            }
+
+            log.warn("출근 시간을 페이지에서 찾지 못했습니다. (기본값 18:00 적용)");
+            return null;
+
+        } catch (Exception e) {
+            log.error("출근 시간 읽기 중 오류: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private LocalTime determineCheckoutTime(LocalTime checkinTime) {
+        if (checkinTime == null) {
+            log.warn("출근 시간 미확인 → 기본값 18:00 적용");
+            return CHECKOUT_6PM;
+        }
+        if (checkinTime.isBefore(CHECKIN_CUTOFF)) {
+            log.info("출근 {} → 8:20 이전 → 17:00 퇴근", checkinTime);
+            return CHECKOUT_5PM;
+        } else {
+            log.info("출근 {} → 8:20 이후 → 18:00 퇴근", checkinTime);
+            return CHECKOUT_6PM;
+        }
+    }
+
+    // ──────────────────────────────────────────────
+    // 내부 헬퍼
+    // ──────────────────────────────────────────────
+
     private boolean isAlreadyCheckedOut() {
-        // 퇴근하기 영역의 시간이 "00:00:00"이면 아직 미퇴근 상태
-        // "00:00:00"이 없으면 실제 퇴근 시간이 기록된 것 → 이미 퇴근 처리됨
         List<WebElement> notYetChecked = driver.findElements(By.xpath(
                 "//*[contains(.,'퇴근하기') and contains(.,'00:00:00')]"
         ));
         if (notYetChecked.stream().anyMatch(WebElement::isDisplayed)) {
-            return false; // 00:00:00 있음 = 아직 퇴근 안 함
+            return false;
         }
-        // 퇴근하기 영역은 있지만 00:00:00이 없으면 이미 퇴근 시간이 찍힌 것
         List<WebElement> checkoutArea = driver.findElements(By.xpath(
                 "//*[contains(.,'퇴근하기')]"
         ));
@@ -243,10 +316,9 @@ public class HiworksService {
     }
 
     private void waitForWorkPageContent() {
-        // 실제 데이터인 "출근하기" 텍스트가 나타날 때까지 대기 (헤더보다 늦게 로드됨)
         try {
             wait.until(ExpectedConditions.visibilityOfElementLocated(
-                    By.xpath("//*[contains(.,'출근하기')]")
+                    By.xpath("//*[contains(.,'출근하기') or contains(.,'퇴근하기') or contains(.,'근무중')]")
             ));
             log.info("근무 페이지 콘텐츠 로드 완료");
         } catch (Exception e) {
@@ -256,13 +328,11 @@ public class HiworksService {
 
     private boolean tryAttendanceOnCurrentPage() {
         try {
-            // 이미 출근 완료 상태인지 확인
             if (isAlreadyCheckedIn()) {
                 log.info("이미 출근 처리되어 있습니다.");
                 return true;
             }
 
-            // 출근 버튼 탐색 (CSS 셀렉터)
             WebElement btn = findCheckInButton();
             if (btn == null) {
                 return false;
@@ -273,21 +343,16 @@ public class HiworksService {
 
             scrollIntoViewAndClick(btn);
             pause(1500);
-
-            // 확인 다이얼로그 처리
             handleConfirmation();
-
             pause(2000);
             takeScreenshot("03-after-checkin");
 
-            // 클릭 후 완료 상태 재확인
             if (isAlreadyCheckedIn()) {
                 log.info("출근 체크인 완료 확인됨.");
                 return true;
             }
 
-            // 완료 텍스트 탐색으로 2차 확인
-            log.info("출근 체크인 버튼 클릭 완료 (상태 텍스트로 재확인 불가 — 성공으로 간주).");
+            log.info("출근 체크인 버튼 클릭 완료 (성공으로 간주).");
             return true;
 
         } catch (Exception e) {
@@ -297,14 +362,12 @@ public class HiworksService {
     }
 
     private boolean isAlreadyCheckedIn() {
-        // 근무체크 영역에 "근무중" 텍스트가 있으면 이미 출근 처리된 것
         List<WebElement> working = driver.findElements(By.xpath(
                 "//*[contains(text(),'근무중')]"
         ));
         if (working.stream().anyMatch(WebElement::isDisplayed)) {
             return true;
         }
-        // 근무현황 영역의 "출근" 텍스트로 2차 확인
         List<WebElement> status = driver.findElements(By.xpath(
                 "//*[contains(text(),'근무현황')]/following-sibling::*//*[contains(text(),'출근')] | " +
                 "//*[contains(text(),'근무현황')]/parent::*//*[contains(text(),'출근')]"
@@ -313,21 +376,15 @@ public class HiworksService {
     }
 
     private WebElement findCheckInButton() {
-        // CSS 셀렉터 방식
         String[] cssSelectors = {
-                ".commute-btn",
-                ".btn-commute",
-                ".work-start-btn",
-                "[class*='commute']",
-                "[id*='commute']",
-                ".attendance-btn",
+                ".commute-btn", ".btn-commute", ".work-start-btn",
+                "[class*='commute']", "[id*='commute']", ".attendance-btn",
         };
         for (String sel : cssSelectors) {
             WebElement el = findVisible(By.cssSelector(sel));
             if (el != null) return el;
         }
 
-        // 텍스트 기반 XPath
         String[] xpaths = {
                 "//button[normalize-space()='출근하기']",
                 "//button[contains(.,'출근하기')]",
@@ -337,12 +394,10 @@ public class HiworksService {
             WebElement el = findVisible(By.xpath(xpath));
             if (el != null) return el;
         }
-
         return null;
     }
 
     private void handleConfirmation() {
-        // Alert 처리
         try {
             Alert alert = driver.switchTo().alert();
             log.info("Alert 감지: '{}'", alert.getText());
@@ -351,15 +406,10 @@ public class HiworksService {
         } catch (NoAlertPresentException ignored) {
         }
 
-        // 모달/다이얼로그 확인 버튼
         String[] confirmSelectors = {
-                ".modal-footer .btn-primary",
-                ".modal .btn-confirm",
-                ".dialog .btn-ok",
-                "button.confirm",
-                ".popup button[type='submit']",
-                "//button[contains(text(),'확인')]",
-                "//button[contains(text(),'OK')]",
+                ".modal-footer .btn-primary", ".modal .btn-confirm",
+                ".dialog .btn-ok", "button.confirm", ".popup button[type='submit']",
+                "//button[contains(text(),'확인')]", "//button[contains(text(),'OK')]",
         };
         for (String sel : confirmSelectors) {
             try {
@@ -431,7 +481,7 @@ public class HiworksService {
             try {
                 driver.quit();
             } catch (Exception ignored) {
-        }
+            }
             driver = null;
             log.info("브라우저 종료");
         }

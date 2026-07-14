@@ -26,6 +26,12 @@ schedule.reminder.cron=0 30 7 ? * MON-FRI
 schedule.checkin8.cron=0 0 8 ? * MON-FRI
 # 9시 출근 자동 체크 (텔레그램에서 "9시"를 선택했을 때만 실행)
 schedule.checkin9.cron=0 0 9 ? * MON-FRI
+# 5시 자동 퇴근 (8:20 이전 출근자)
+schedule.checkout5.cron=0 0 17 ? * MON-FRI
+# 6시 자동 퇴근 (8:20 이후 출근자)
+schedule.checkout6.cron=0 0 18 ? * MON-FRI
+# 프로그램 자동 종료 (6시 퇴근 체크 완료 후)
+schedule.shutdown.cron=0 15 18 ? * MON-FRI
 # 재시도 간격 (초)
 schedule.retry.interval=60
 # 최대 재시도 횟수

@@ -25,6 +25,9 @@ public class AppConfig {
     private final String reminderCron;
     private final String checkin8Cron;
     private final String checkin9Cron;
+    private final String checkout5Cron;
+    private final String checkout6Cron;
+    private final String shutdownCron;
 
     private AppConfig(Properties props) {
         this.hiworksUrl = props.getProperty("hiworks.url");
@@ -39,7 +42,10 @@ public class AppConfig {
         this.telegramChatId = props.getProperty("telegram.chat.id", "");
         this.reminderCron = props.getProperty("schedule.reminder.cron", "0 30 7 ? * MON-FRI");
         this.checkin8Cron = props.getProperty("schedule.checkin8.cron", "0 0 8 ? * MON-FRI");
-        this.checkin9Cron = props.getProperty("schedule.checkin9.cron", "0 0 9 ? * MON-FRI");
+        this.checkin9Cron  = props.getProperty("schedule.checkin9.cron",  "0 0 9 ? * MON-FRI");
+        this.checkout5Cron = props.getProperty("schedule.checkout5.cron", "0 0 17 ? * MON-FRI");
+        this.checkout6Cron = props.getProperty("schedule.checkout6.cron", "0 0 18 ? * MON-FRI");
+        this.shutdownCron  = props.getProperty("schedule.shutdown.cron",  "0 15 18 ? * MON-FRI");
     }
 
     public static AppConfig load() throws IOException {
@@ -66,7 +72,10 @@ public class AppConfig {
     public String getTelegramChatId() { return telegramChatId; }
     public String getReminderCron() { return reminderCron; }
     public String getCheckin8Cron() { return checkin8Cron; }
-    public String getCheckin9Cron() { return checkin9Cron; }
+    public String getCheckin9Cron()  { return checkin9Cron; }
+    public String getCheckout5Cron() { return checkout5Cron; }
+    public String getCheckout6Cron() { return checkout6Cron; }
+    public String getShutdownCron()  { return shutdownCron; }
 
     public boolean isTelegramConfigured() {
         return telegramBotToken != null && !telegramBotToken.isEmpty()

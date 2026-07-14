@@ -86,6 +86,52 @@ public class SchedulerService {
         log.info("9시 출근 스케줄 등록: [{}] | 다음 실행: {}",
                 config.getCheckin9Cron(), trigger9.getNextFireTime());
 
+        // 17:00 퇴근 잡 (8:20 이전 출근자)
+        JobDataMap data17 = new JobDataMap();
+        data17.put("config", config);
+        data17.put("scheduledHour", 17);
+
+        JobDetail checkout17Job = JobBuilder.newJob(CheckoutJob.class)
+                .withIdentity("checkout17Job", "hiworks")
+                .usingJobData(data17)
+                .build();
+        CronTrigger trigger17 = TriggerBuilder.newTrigger()
+                .withIdentity("checkout17Trigger", "hiworks")
+                .withSchedule(CronScheduleBuilder.cronSchedule(config.getCheckout5Cron()))
+                .build();
+        scheduler.scheduleJob(checkout17Job, trigger17);
+        log.info("5시 퇴근 스케줄 등록: [{}] | 다음 실행: {}",
+                config.getCheckout5Cron(), trigger17.getNextFireTime());
+
+        // 18:00 퇴근 잡 (8:20 이후 출근자)
+        JobDataMap data18 = new JobDataMap();
+        data18.put("config", config);
+        data18.put("scheduledHour", 18);
+
+        JobDetail checkout18Job = JobBuilder.newJob(CheckoutJob.class)
+                .withIdentity("checkout18Job", "hiworks")
+                .usingJobData(data18)
+                .build();
+        CronTrigger trigger18 = TriggerBuilder.newTrigger()
+                .withIdentity("checkout18Trigger", "hiworks")
+                .withSchedule(CronScheduleBuilder.cronSchedule(config.getCheckout6Cron()))
+                .build();
+        scheduler.scheduleJob(checkout18Job, trigger18);
+        log.info("6시 퇴근 스케줄 등록: [{}] | 다음 실행: {}",
+                config.getCheckout6Cron(), trigger18.getNextFireTime());
+
+        // 18:15 자동 종료 잡
+        JobDetail shutdownJob = JobBuilder.newJob(ShutdownJob.class)
+                .withIdentity("shutdownJob", "hiworks")
+                .build();
+        CronTrigger shutdownTrigger = TriggerBuilder.newTrigger()
+                .withIdentity("shutdownTrigger", "hiworks")
+                .withSchedule(CronScheduleBuilder.cronSchedule(config.getShutdownCron()))
+                .build();
+        scheduler.scheduleJob(shutdownJob, shutdownTrigger);
+        log.info("자동 종료 스케줄 등록: [{}] | 다음 종료: {}",
+                config.getShutdownCron(), shutdownTrigger.getNextFireTime());
+
         scheduler.start();
     }
 
