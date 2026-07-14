@@ -188,15 +188,28 @@ public class HiworksService {
             // 스케줄/모드별 퇴근 시간 결정
             LocalTime targetCheckout;
             if (scheduledHour == 0) {
-                // 오후 반차 모드
+                // 수동 반차 (run-halfday-checkout.bat)
                 targetCheckout = checkinTime != null && checkinTime.isBefore(CHECKIN_CUTOFF)
-                        ? LocalTime.of(12, 0)   // 8시 출근 → 12:00 퇴근
-                        : LocalTime.of(14, 0);  // 9시 출근 → 14:00 퇴근
-                log.info("오후 반차 모드: 퇴근 가능 시각 {}", targetCheckout);
+                        ? LocalTime.of(12, 0)
+                        : LocalTime.of(14, 0);
+                log.info("오후 반차 수동 모드: 퇴근 가능 시각 {}", targetCheckout);
+            } else if (scheduledHour == 12) {
+                // 자동 반차 - 8:20 이전 출근자
+                if (checkinTime == null || !checkinTime.isBefore(CHECKIN_CUTOFF)) {
+                    log.info("12시 반차 조건 미충족 (출근 시간: {}) → 건너뜀", checkinTime);
+                    return false;
+                }
+                targetCheckout = LocalTime.of(12, 0);
+            } else if (scheduledHour == 14) {
+                // 자동 반차 - 8:20 이후 출근자
+                if (checkinTime != null && checkinTime.isBefore(CHECKIN_CUTOFF)) {
+                    log.info("14시 반차 조건 미충족 (출근 시간: {} → 12시 반차 대상) → 건너뜀", checkinTime);
+                    return false;
+                }
+                targetCheckout = LocalTime.of(14, 0);
             } else {
                 targetCheckout = determineCheckoutTime(checkinTime);
 
-                // 스케줄 잡에서 호출된 경우: 이 시간대에 퇴근해야 하는지 확인
                 if (scheduledHour == 17) {
                     if (checkinTime == null || !checkinTime.isBefore(CHECKIN_CUTOFF)) {
                         log.info("5시 퇴근 조건 미충족 (출근 시간: {}) → 건너뜀", checkinTime);

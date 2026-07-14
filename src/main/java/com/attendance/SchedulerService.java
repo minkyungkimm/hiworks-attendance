@@ -86,6 +86,38 @@ public class SchedulerService {
         log.info("9시 출근 스케줄 등록: [{}] | 다음 실행: {}",
                 config.getCheckin9Cron(), trigger9.getNextFireTime());
 
+        // 12:00 반차 퇴근 잡 (8:20 이전 출근자 + 반차 선택 시)
+        JobDataMap data12 = new JobDataMap();
+        data12.put("config", config);
+        data12.put("scheduledHour", 12);
+
+        JobDetail checkout12Job = JobBuilder.newJob(CheckoutJob.class)
+                .withIdentity("halfday12Job", "hiworks")
+                .usingJobData(data12)
+                .build();
+        CronTrigger trigger12 = TriggerBuilder.newTrigger()
+                .withIdentity("halfday12Trigger", "hiworks")
+                .withSchedule(CronScheduleBuilder.cronSchedule(config.getHalfday12Cron()))
+                .build();
+        scheduler.scheduleJob(checkout12Job, trigger12);
+        log.info("12시 반차 퇴근 스케줄 등록: [{}]", config.getHalfday12Cron());
+
+        // 14:00 반차 퇴근 잡 (8:20 이후 출근자 + 반차 선택 시)
+        JobDataMap data14 = new JobDataMap();
+        data14.put("config", config);
+        data14.put("scheduledHour", 14);
+
+        JobDetail checkout14Job = JobBuilder.newJob(CheckoutJob.class)
+                .withIdentity("halfday14Job", "hiworks")
+                .usingJobData(data14)
+                .build();
+        CronTrigger trigger14 = TriggerBuilder.newTrigger()
+                .withIdentity("halfday14Trigger", "hiworks")
+                .withSchedule(CronScheduleBuilder.cronSchedule(config.getHalfday14Cron()))
+                .build();
+        scheduler.scheduleJob(checkout14Job, trigger14);
+        log.info("14시 반차 퇴근 스케줄 등록: [{}]", config.getHalfday14Cron());
+
         // 17:00 퇴근 잡 (8:20 이전 출근자)
         JobDataMap data17 = new JobDataMap();
         data17.put("config", config);

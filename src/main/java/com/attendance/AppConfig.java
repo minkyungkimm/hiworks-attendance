@@ -25,6 +25,8 @@ public class AppConfig {
     private final String reminderCron;
     private final String checkin8Cron;
     private final String checkin9Cron;
+    private final String halfday12Cron;
+    private final String halfday14Cron;
     private final String checkout5Cron;
     private final String checkout6Cron;
     private final String shutdownCron;
@@ -43,6 +45,8 @@ public class AppConfig {
         this.reminderCron = props.getProperty("schedule.reminder.cron", "0 30 7 ? * MON-FRI");
         this.checkin8Cron = props.getProperty("schedule.checkin8.cron", "0 0 8 ? * MON-FRI");
         this.checkin9Cron  = props.getProperty("schedule.checkin9.cron",  "0 0 9 ? * MON-FRI");
+        this.halfday12Cron = props.getProperty("schedule.halfday12.cron", "0 0 12 ? * MON-FRI");
+        this.halfday14Cron = props.getProperty("schedule.halfday14.cron", "0 0 14 ? * MON-FRI");
         this.checkout5Cron = props.getProperty("schedule.checkout5.cron", "0 0 17 ? * MON-FRI");
         this.checkout6Cron = props.getProperty("schedule.checkout6.cron", "0 0 18 ? * MON-FRI");
         this.shutdownCron  = props.getProperty("schedule.shutdown.cron",  "0 15 18 ? * MON-FRI");
@@ -73,6 +77,8 @@ public class AppConfig {
     public String getReminderCron() { return reminderCron; }
     public String getCheckin8Cron() { return checkin8Cron; }
     public String getCheckin9Cron()  { return checkin9Cron; }
+    public String getHalfday12Cron() { return halfday12Cron; }
+    public String getHalfday14Cron() { return halfday14Cron; }
     public String getCheckout5Cron() { return checkout5Cron; }
     public String getCheckout6Cron() { return checkout6Cron; }
     public String getShutdownCron()  { return shutdownCron; }

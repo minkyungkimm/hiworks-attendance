@@ -28,6 +28,18 @@ public class CheckoutJob implements Job {
 
         AppConfig config = (AppConfig) context.getJobDetail().getJobDataMap().get("config");
         int scheduledHour = context.getJobDetail().getJobDataMap().getIntValue("scheduledHour");
+        AttendanceState.Decision state = AttendanceState.get();
+
+        // 반차 잡(12, 14시): 반차 선택 시에만 실행
+        if ((scheduledHour == 12 || scheduledHour == 14) && state != AttendanceState.Decision.HALFDAY) {
+            log.info("===== 반차가 선택되지 않아 {}시 퇴근 잡 건너뜀 =====", scheduledHour);
+            return;
+        }
+        // 정규 퇴근 잡(17, 18시): 반차 선택 시 건너뜀
+        if ((scheduledHour == 17 || scheduledHour == 18) && state == AttendanceState.Decision.HALFDAY) {
+            log.info("===== 오후 반차 선택으로 {}시 정규 퇴근 잡 건너뜀 =====", scheduledHour);
+            return;
+        }
 
         log.info("===== 퇴근 체크 작업 시작 ({}시 스케줄) =====", scheduledHour);
 
