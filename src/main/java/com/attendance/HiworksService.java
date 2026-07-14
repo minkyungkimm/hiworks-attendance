@@ -212,14 +212,19 @@ public class HiworksService {
     }
 
     private boolean isAlreadyCheckedOut() {
-        // 버튼이 아닌 요소에서 "퇴근" 텍스트 탐색 (퇴근하기 버튼 오감지 방지)
-        List<WebElement> status = driver.findElements(By.xpath(
-                "//*[normalize-space(text())='퇴근' " +
-                "and not(self::button) " +
-                "and not(ancestor::button) " +
-                "and not(ancestor::*[contains(@class,'btn')])]"
+        // 퇴근하기 영역의 시간이 "00:00:00"이면 아직 미퇴근 상태
+        // "00:00:00"이 없으면 실제 퇴근 시간이 기록된 것 → 이미 퇴근 처리됨
+        List<WebElement> notYetChecked = driver.findElements(By.xpath(
+                "//*[contains(.,'퇴근하기') and contains(.,'00:00:00')]"
         ));
-        return status.stream().anyMatch(WebElement::isDisplayed);
+        if (notYetChecked.stream().anyMatch(WebElement::isDisplayed)) {
+            return false; // 00:00:00 있음 = 아직 퇴근 안 함
+        }
+        // 퇴근하기 영역은 있지만 00:00:00이 없으면 이미 퇴근 시간이 찍힌 것
+        List<WebElement> checkoutArea = driver.findElements(By.xpath(
+                "//*[contains(.,'퇴근하기')]"
+        ));
+        return !checkoutArea.isEmpty();
     }
 
     private WebElement findCheckOutButton() {
