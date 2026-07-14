@@ -243,10 +243,10 @@ public class HiworksService {
     }
 
     private void waitForWorkPageContent() {
-        // 근무체크 영역(출근하기/퇴근하기)이 나타날 때까지 대기
+        // 실제 데이터인 "출근하기" 텍스트가 나타날 때까지 대기 (헤더보다 늦게 로드됨)
         try {
             wait.until(ExpectedConditions.visibilityOfElementLocated(
-                    By.xpath("//*[contains(.,'출근하기') or contains(.,'퇴근하기') or contains(.,'근무체크')]")
+                    By.xpath("//*[contains(.,'출근하기')]")
             ));
             log.info("근무 페이지 콘텐츠 로드 완료");
         } catch (Exception e) {
