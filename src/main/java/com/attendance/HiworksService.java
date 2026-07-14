@@ -157,6 +157,72 @@ public class HiworksService {
         return tryAttendanceOnCurrentPage();
     }
 
+    public boolean checkAndDoCheckout() {
+        log.info("근무 페이지 이동 (퇴근): {}", WORK_PAGE_URL);
+        driver.get(WORK_PAGE_URL);
+        pause(2000);
+        takeScreenshot("02-checkout-page");
+
+        try {
+            // 이미 퇴근 완료 상태 확인
+            if (isAlreadyCheckedOut()) {
+                log.info("이미 퇴근 처리되어 있습니다.");
+                return true;
+            }
+
+            // 출근도 안 된 상태면 퇴근 불가
+            if (!isAlreadyCheckedIn()) {
+                log.warn("출근 기록이 없어 퇴근 처리를 할 수 없습니다.");
+                return false;
+            }
+
+            // 퇴근 버튼 탐색
+            WebElement btn = findCheckOutButton();
+            if (btn == null) {
+                takeScreenshot("checkout-btn-not-found");
+                log.error("퇴근 버튼을 찾을 수 없습니다. 스크린샷을 확인하세요.");
+                return false;
+            }
+
+            log.info("퇴근 버튼 발견 (text='{}'). 클릭합니다.", btn.getText().trim());
+            takeScreenshot("03-before-checkout");
+
+            scrollIntoViewAndClick(btn);
+            pause(1500);
+            handleConfirmation();
+            pause(2000);
+            takeScreenshot("04-after-checkout");
+
+            log.info("퇴근 체크 완료!");
+            return true;
+
+        } catch (Exception e) {
+            log.error("퇴근 처리 중 오류: {}", e.getMessage(), e);
+            return false;
+        }
+    }
+
+    private boolean isAlreadyCheckedOut() {
+        List<WebElement> els = driver.findElements(By.xpath(
+                "//*[contains(text(),'퇴근완료') or contains(text(),'퇴근 완료')]"
+        ));
+        return els.stream().anyMatch(WebElement::isDisplayed);
+    }
+
+    private WebElement findCheckOutButton() {
+        String[] xpaths = {
+                "//button[normalize-space(text())='퇴근']",
+                "//button[contains(text(),'퇴근') and not(contains(text(),'완료'))]",
+                "//a[normalize-space(text())='퇴근']",
+                "//span[normalize-space(text())='퇴근']/parent::button",
+        };
+        for (String xpath : xpaths) {
+            WebElement el = findVisible(By.xpath(xpath));
+            if (el != null) return el;
+        }
+        return null;
+    }
+
     private boolean tryAttendanceOnCurrentPage() {
         try {
             // 이미 출근 완료 상태인지 확인

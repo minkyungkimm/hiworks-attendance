@@ -12,11 +12,18 @@ public class Main {
 
         AppConfig config = AppConfig.load();
 
-        // --now 플래그: 스케줄 없이 즉시 1회 실행 (테스트용)
-        if (args.length > 0 && "--now".equals(args[0])) {
-            log.info("[테스트 모드] 즉시 출석체크를 실행합니다.");
-            runOnce(config);
-            return;
+        if (args.length > 0) {
+            switch (args[0]) {
+                case "--now":
+                case "--checkin":
+                    log.info("[출근 모드] 출근 체크를 실행합니다.");
+                    runCheckin(config);
+                    return;
+                case "--checkout":
+                    log.info("[퇴근 모드] 퇴근 체크를 실행합니다.");
+                    runCheckout(config);
+                    return;
+            }
         }
 
         // 일반 모드: Quartz 스케줄러로 지정 시간에 실행
@@ -33,15 +40,32 @@ public class Main {
         Thread.currentThread().join();
     }
 
-    private static void runOnce(AppConfig config) {
+    private static void runCheckin(AppConfig config) {
         HiworksService service = new HiworksService(config);
         try {
             service.login();
             boolean done = service.checkAndDoAttendance();
             if (done) {
-                log.info("출석체크 완료!");
+                log.info("출근 체크 완료!");
             } else {
-                log.warn("출석체크 실패 — logs/screenshots 폴더를 확인하세요.");
+                log.warn("출근 체크 실패 — logs/screenshots 폴더를 확인하세요.");
+            }
+        } catch (Exception e) {
+            log.error("오류 발생: {}", e.getMessage(), e);
+        } finally {
+            service.quit();
+        }
+    }
+
+    private static void runCheckout(AppConfig config) {
+        HiworksService service = new HiworksService(config);
+        try {
+            service.login();
+            boolean done = service.checkAndDoCheckout();
+            if (done) {
+                log.info("퇴근 체크 완료!");
+            } else {
+                log.warn("퇴근 체크 실패 — logs/screenshots 폴더를 확인하세요.");
             }
         } catch (Exception e) {
             log.error("오류 발생: {}", e.getMessage(), e);
