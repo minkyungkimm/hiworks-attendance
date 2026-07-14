@@ -21,6 +21,11 @@ public class CheckoutJob implements Job {
             return;
         }
 
+        if (AttendanceState.get() == AttendanceState.Decision.VACATION) {
+            log.info("===== 오늘은 연차 - 퇴근 체크 건너뜀 =====");
+            return;
+        }
+
         AppConfig config = (AppConfig) context.getJobDetail().getJobDataMap().get("config");
         int scheduledHour = context.getJobDetail().getJobDataMap().getIntValue("scheduledHour");
 

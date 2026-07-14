@@ -61,12 +61,15 @@ public class TelegramBotService {
         try {
             AttendanceState.reset();
 
-            JSONArray row = new JSONArray();
-            row.put(new JSONObject().put("text", "✅ 네, 8시 출근").put("callback_data", "CHECKIN_8"));
-            row.put(new JSONObject().put("text", "❌ 아니요, 9시").put("callback_data", "CHECKIN_9"));
+            JSONArray row1 = new JSONArray();
+            row1.put(new JSONObject().put("text", "✅ 네, 8시 출근").put("callback_data", "CHECKIN_8"));
+            row1.put(new JSONObject().put("text", "❌ 아니요, 9시").put("callback_data", "CHECKIN_9"));
+
+            JSONArray row2 = new JSONArray();
+            row2.put(new JSONObject().put("text", "🏖️ 오늘 연차").put("callback_data", "VACATION"));
 
             JSONObject replyMarkup = new JSONObject();
-            replyMarkup.put("inline_keyboard", new JSONArray().put(row));
+            replyMarkup.put("inline_keyboard", new JSONArray().put(row1).put(row2));
 
             JSONObject body = new JSONObject();
             body.put("chat_id", chatId);
@@ -160,6 +163,10 @@ public class TelegramBotService {
             case "CHECKIN_9":
                 decision = AttendanceState.Decision.CHECKIN_9;
                 confirmText = "✅ 9시 출근으로 설정되었습니다. 9:00에 자동 출근 처리됩니다.";
+                break;
+            case "VACATION":
+                decision = AttendanceState.Decision.VACATION;
+                confirmText = "🏖️ 연차로 설정되었습니다. 오늘 출퇴근 체크를 건너뜁니다.";
                 break;
             default:
                 return;
