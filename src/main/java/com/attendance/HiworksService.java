@@ -148,10 +148,15 @@ public class HiworksService {
     // ──────────────────────────────────────────────
 
     public boolean checkAndDoAttendance() {
+        return checkAndDoAttendance(null);
+    }
+
+    public boolean checkAndDoAttendance(LocalTime targetTime) {
         log.info("근무 페이지 이동: {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
         waitForWorkPageContent();
         takeScreenshot("02-work-page");
+        if (targetTime != null) waitUntilTime(targetTime);
         return tryAttendanceOnCurrentPage();
     }
 
@@ -223,6 +228,9 @@ public class HiworksService {
                     }
                 }
             }
+
+            // 퇴근 시각 1분 후 클릭 (자동 스케줄 모드에서만)
+            if (scheduledHour > 0) waitUntilTime(LocalTime.of(scheduledHour, 1, 0));
 
             // 현재 시각이 퇴근 가능 시간인지 확인
             LocalTime now = LocalTime.now();
@@ -401,6 +409,19 @@ public class HiworksService {
             log.info("출근 시간 텍스트 로드 확인 — 스크린샷 진행");
         } catch (Exception e) {
             log.warn("출근 시간 텍스트 로드 대기 시간 초과 — 그대로 진행");
+        }
+    }
+
+    private void waitUntilTime(LocalTime target) {
+        LocalTime now = LocalTime.now();
+        if (now.isBefore(target)) {
+            long millis = java.time.Duration.between(now, target).toMillis();
+            log.info("정각 클릭 대기 중... {} 까지 {}초 남음", target, millis / 1000);
+            try {
+                Thread.sleep(millis);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 

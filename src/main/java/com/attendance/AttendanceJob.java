@@ -55,7 +55,7 @@ public class AttendanceJob implements Job {
             HiworksService service = new HiworksService(config);
             try {
                 service.login();
-                boolean done = service.checkAndDoAttendance();
+                boolean done = service.checkAndDoAttendance(java.time.LocalTime.of(scheduledHour - 1, 59, 0));
                 if (done) {
                     log.info("===== 출석체크 완료 (시도 {}/{}) =====", attempt, config.getRetryMax());
                     TelegramBotService bot = TelegramBotService.getInstance();
