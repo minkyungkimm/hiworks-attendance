@@ -43,18 +43,35 @@ public class CheckoutJob implements Job {
 
         log.info("===== 퇴근 체크 작업 시작 ({}시 스케줄, 상태: {}) =====", scheduledHour, state);
 
-        HiworksService service = new HiworksService(config);
-        try {
-            service.login();
-            boolean done = service.checkAndDoCheckout(scheduledHour);
-            if (done) {
-                log.info("===== 퇴근 체크 완료 ({}시 스케줄) =====", scheduledHour);
+        int maxRetry = 3;
+        for (int attempt = 1; attempt <= maxRetry; attempt++) {
+            HiworksService service = new HiworksService(config);
+            try {
+                service.login();
+                boolean done = service.checkAndDoCheckout(scheduledHour);
+                if (done) {
+                    log.info("===== 퇴근 체크 완료 (시도 {}/{}) =====", attempt, maxRetry);
+                    return;
+                }
+                log.warn("퇴근 체크 미완료 (시도 {}/{})", attempt, maxRetry);
+            } catch (Exception e) {
+                log.error("퇴근 체크 실패 (시도 {}/{}): {}", attempt, maxRetry, e.getMessage(), e);
+            } finally {
+                service.quit();
             }
-        } catch (Exception e) {
-            log.error("퇴근 체크 실패: {}", e.getMessage(), e);
-        } finally {
-            service.quit();
+
+            if (attempt < maxRetry) {
+                log.info("30초 후 재시도...");
+                try {
+                    Thread.sleep(30_000);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    return;
+                }
+            }
         }
+
+        log.error("===== 최대 재시도({}) 초과. 퇴근 체크 최종 실패 =====", maxRetry);
     }
 
     private static boolean isHalfday(AttendanceState.Decision d) {
