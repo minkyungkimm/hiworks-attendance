@@ -381,20 +381,26 @@ public class HiworksService {
         waitForPageStable();
     }
 
-    // 페이지에 HH:mm 형식의 시간 텍스트가 나타날 때까지 대기 (출근 시간 렌더링 보장)
+    // 출근 가능 시간대(05:00~12:59)의 시간 텍스트가 나타날 때까지 대기
+    // 현재 시각(15:33 등)은 범위 밖이므로 무시됨
     private void waitForTimeTextVisible() {
         try {
             new WebDriverWait(driver, Duration.ofSeconds(15)).until(d -> {
                 try {
                     String bodyText = d.findElement(By.tagName("body")).getText();
-                    return Pattern.compile("\\b([0-1]?[0-9]):([0-5][0-9])\\b").matcher(bodyText).find();
+                    Matcher m = Pattern.compile("\\b([0-1]?[0-9]):([0-5][0-9])\\b").matcher(bodyText);
+                    while (m.find()) {
+                        int hour = Integer.parseInt(m.group(1));
+                        if (hour >= 5 && hour <= 12) return true;
+                    }
+                    return false;
                 } catch (Exception e) {
                     return false;
                 }
             });
-            log.info("시간 텍스트 로드 확인 — 스크린샷 진행");
+            log.info("출근 시간 텍스트 로드 확인 — 스크린샷 진행");
         } catch (Exception e) {
-            log.warn("시간 텍스트 로드 대기 시간 초과 — 그대로 진행");
+            log.warn("출근 시간 텍스트 로드 대기 시간 초과 — 그대로 진행");
         }
     }
 
