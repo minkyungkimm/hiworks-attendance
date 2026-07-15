@@ -158,8 +158,11 @@ public class TelegramBotService {
         String queryId = callbackQuery.getString("id");
         String data = callbackQuery.getString("data");
 
+        AttendanceState.Decision current = AttendanceState.get();
+
         switch (data) {
             case "CHECKIN_8": {
+                if (current == AttendanceState.Decision.CHECKIN_8) { answerCallbackQuery(queryId); return; }
                 AttendanceState.set(AttendanceState.Decision.CHECKIN_8);
                 log.info("텔레그램 버튼 클릭: CHECKIN_8");
                 answerCallbackQuery(queryId);
@@ -167,6 +170,7 @@ public class TelegramBotService {
                 break;
             }
             case "CHECKIN_9": {
+                if (current == AttendanceState.Decision.CHECKIN_9) { answerCallbackQuery(queryId); return; }
                 AttendanceState.set(AttendanceState.Decision.CHECKIN_9);
                 log.info("텔레그램 버튼 클릭: CHECKIN_9");
                 answerCallbackQuery(queryId);
@@ -174,12 +178,14 @@ public class TelegramBotService {
                 break;
             }
             case "HALFDAY": {
+                if (current == AttendanceState.Decision.HALFDAY_8 || current == AttendanceState.Decision.HALFDAY_9) { answerCallbackQuery(queryId); return; }
                 log.info("텔레그램 버튼 클릭: HALFDAY → 출근시간 선택 메시지 전송");
                 answerCallbackQuery(queryId);
                 sendHalfdayTimeQuestion();
                 break;
             }
             case "HALFDAY_8": {
+                if (current == AttendanceState.Decision.HALFDAY_8) { answerCallbackQuery(queryId); return; }
                 AttendanceState.set(AttendanceState.Decision.HALFDAY_8);
                 log.info("텔레그램 버튼 클릭: HALFDAY_8 → 8시 출근 + 오후 반차");
                 answerCallbackQuery(queryId);
@@ -187,6 +193,7 @@ public class TelegramBotService {
                 break;
             }
             case "HALFDAY_9": {
+                if (current == AttendanceState.Decision.HALFDAY_9) { answerCallbackQuery(queryId); return; }
                 AttendanceState.set(AttendanceState.Decision.HALFDAY_9);
                 log.info("텔레그램 버튼 클릭: HALFDAY_9 → 9시 출근 + 오후 반차");
                 answerCallbackQuery(queryId);
@@ -194,6 +201,7 @@ public class TelegramBotService {
                 break;
             }
             case "VACATION": {
+                if (current == AttendanceState.Decision.VACATION) { answerCallbackQuery(queryId); return; }
                 AttendanceState.set(AttendanceState.Decision.VACATION);
                 log.info("텔레그램 버튼 클릭: VACATION");
                 answerCallbackQuery(queryId);
