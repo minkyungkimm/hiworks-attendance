@@ -58,6 +58,8 @@ public class AttendanceJob implements Job {
                 boolean done = service.checkAndDoAttendance();
                 if (done) {
                     log.info("===== 출석체크 완료 (시도 {}/{}) =====", attempt, config.getRetryMax());
+                    TelegramBotService bot = TelegramBotService.getInstance();
+                    if (bot != null) bot.sendMessage("✅ 출근 체크 완료!");
                     return;
                 }
                 log.warn("출석체크 미완료 (시도 {}/{})", attempt, config.getRetryMax());

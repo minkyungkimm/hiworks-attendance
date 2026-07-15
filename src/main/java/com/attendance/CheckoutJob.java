@@ -51,6 +51,8 @@ public class CheckoutJob implements Job {
                 boolean done = service.checkAndDoCheckout(scheduledHour);
                 if (done) {
                     log.info("===== 퇴근 체크 완료 (시도 {}/{}) =====", attempt, maxRetry);
+                    TelegramBotService bot = TelegramBotService.getInstance();
+                    if (bot != null) bot.sendMessage("✅ 퇴근 체크 완료!");
                     return;
                 }
                 log.warn("퇴근 체크 미완료 (시도 {}/{})", attempt, maxRetry);
