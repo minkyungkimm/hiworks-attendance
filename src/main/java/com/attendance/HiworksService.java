@@ -169,6 +169,7 @@ public class HiworksService {
         log.info("근무 페이지 이동 (퇴근): {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
         waitForWorkPageContent();
+        waitForTimeTextVisible();
         takeScreenshot("02-checkout-page");
 
         try {
@@ -244,7 +245,7 @@ public class HiworksService {
             scrollIntoViewAndClick(btn);
             pause(1500);
             handleConfirmation();
-            pause(2000);
+            waitForPageStable();
             takeScreenshot("04-after-checkout");
 
             log.info("퇴근 체크 완료!");
@@ -266,27 +267,31 @@ public class HiworksService {
             String pageText = driver.findElement(By.tagName("body")).getText();
             String[] lines = pageText.split("[\\n\\r]+");
 
+            // "출근하기" 레이블을 기준으로 아래 줄에서 시간 탐색
+            // "근무중" 옆의 시간은 현재 시각이므로 건너뜀
             for (int i = 0; i < lines.length; i++) {
                 String line = lines[i].trim();
-                // "출근"이 있고 "퇴근"/"하기"는 없는 줄 → 출근 기록 행
-                if (line.contains("출근") && !line.contains("퇴근") && !line.contains("하기")) {
-                    // 현재 줄 + 다음 2줄 범위에서 시간 찾기
-                    for (int j = i; j <= Math.min(i + 2, lines.length - 1); j++) {
-                        Matcher m = timePattern.matcher(lines[j]);
-                        while (m.find()) {
-                            int hour   = Integer.parseInt(m.group(1));
-                            int minute = Integer.parseInt(m.group(2));
-                            if (hour >= 5 && hour <= 12) { // 출근 가능한 시간대
-                                LocalTime t = LocalTime.of(hour, minute);
-                                log.info("출근 시간 감지: {}", t);
-                                return t;
-                            }
+                if (!line.contains("출근하기")) continue;
+
+                // 출근하기 아래 최대 5줄 탐색
+                for (int j = i + 1; j <= Math.min(i + 5, lines.length - 1); j++) {
+                    String nearby = lines[j].trim();
+                    if (nearby.contains("근무중")) continue; // 현재 시각 표시 줄 건너뜀
+
+                    Matcher m = timePattern.matcher(nearby);
+                    while (m.find()) {
+                        int hour   = Integer.parseInt(m.group(1));
+                        int minute = Integer.parseInt(m.group(2));
+                        if (hour >= 5 && hour <= 12) {
+                            LocalTime t = LocalTime.of(hour, minute);
+                            log.info("출근 시간 감지 (출근하기 섹션): {}", t);
+                            return t;
                         }
                     }
                 }
             }
 
-            log.warn("출근 시간을 페이지에서 찾지 못했습니다. (기본값 18:00 적용)");
+            log.warn("출근 시간을 페이지에서 찾지 못했습니다.");
             return null;
 
         } catch (Exception e) {
@@ -314,16 +319,41 @@ public class HiworksService {
     // ──────────────────────────────────────────────
 
     private boolean isAlreadyCheckedOut() {
-        List<WebElement> notYetChecked = driver.findElements(By.xpath(
-                "//*[contains(.,'퇴근하기') and contains(.,'00:00:00')]"
-        ));
-        if (notYetChecked.stream().anyMatch(WebElement::isDisplayed)) {
+        try {
+            String pageText = driver.findElement(By.tagName("body")).getText();
+            String[] lines = pageText.split("[\\n\\r]+");
+
+            boolean inSection = false;
+            for (String rawLine : lines) {
+                String line = rawLine.trim();
+
+                // 우측 "근무현황" 패널 헤더 감지
+                // "오늘 근무현황" / "주간 근무현황" 같은 상위 섹션 제목은 제외
+                if (line.contains("근무현황")
+                        && !line.contains("오늘") && !line.contains("주간") && !line.contains("월간")) {
+                    inSection = true;
+                    continue;
+                }
+
+                // 주간/월간 근무현황 등 다음 섹션이 나오면 탐색 종료
+                if (inSection && (line.contains("주간") || line.contains("월간"))) {
+                    break;
+                }
+
+                // 근무현황 섹션 안에서 퇴근 기록 탐색 (퇴근하기 버튼 텍스트는 제외)
+                if (inSection && line.contains("퇴근") && !line.contains("퇴근하기")) {
+                    log.info("근무현황 섹션에서 퇴근 기록 확인됨: {}", line);
+                    return true;
+                }
+            }
+
+            log.info("근무현황 섹션에 퇴근 기록 없음 → 퇴근 미완료");
+            return false;
+
+        } catch (Exception e) {
+            log.error("퇴근 여부 확인 중 오류: {}", e.getMessage());
             return false;
         }
-        List<WebElement> checkoutArea = driver.findElements(By.xpath(
-                "//*[contains(.,'퇴근하기')]"
-        ));
-        return !checkoutArea.isEmpty();
     }
 
     private WebElement findCheckOutButton() {
@@ -348,6 +378,57 @@ public class HiworksService {
         } catch (Exception e) {
             log.warn("근무 페이지 콘텐츠 로드 대기 시간 초과 — 그대로 진행");
         }
+        waitForPageStable();
+    }
+
+    // 페이지에 HH:mm 형식의 시간 텍스트가 나타날 때까지 대기 (출근 시간 렌더링 보장)
+    private void waitForTimeTextVisible() {
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(15)).until(d -> {
+                try {
+                    String bodyText = d.findElement(By.tagName("body")).getText();
+                    return Pattern.compile("\\b([0-1]?[0-9]):([0-5][0-9])\\b").matcher(bodyText).find();
+                } catch (Exception e) {
+                    return false;
+                }
+            });
+            log.info("시간 텍스트 로드 확인 — 스크린샷 진행");
+        } catch (Exception e) {
+            log.warn("시간 텍스트 로드 대기 시간 초과 — 그대로 진행");
+        }
+    }
+
+    // body가 실제 내용을 갖고, 로딩 인디케이터가 사라질 때까지 대기
+    private void waitForPageStable() {
+        // 1. body 텍스트가 충분히 채워질 때까지 대기 (빈 화면/초기 렌더링 방지)
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(10)).until(d -> {
+                try {
+                    return d.findElement(By.tagName("body")).getText().trim().length() > 50;
+                } catch (Exception e) {
+                    return false;
+                }
+            });
+        } catch (Exception e) {
+            log.debug("페이지 본문 로드 대기 시간 초과");
+        }
+
+        // 2. 로딩 스피너/오버레이가 사라질 때까지 대기 (최대 8초)
+        try {
+            new WebDriverWait(driver, Duration.ofSeconds(8)).until(d -> {
+                try {
+                    List<WebElement> loaders = d.findElements(By.cssSelector(
+                            "[class*='loading'], [class*='spinner'], [class*='skeleton'], " +
+                            "[class*='progress'], .dim, .overlay, .loader"
+                    ));
+                    return loaders.stream().noneMatch(WebElement::isDisplayed);
+                } catch (Exception e) {
+                    return true;
+                }
+            });
+        } catch (Exception ignored) {
+            // 시간 초과 시 그냥 진행
+        }
     }
 
     private boolean tryAttendanceOnCurrentPage() {
@@ -368,7 +449,7 @@ public class HiworksService {
             scrollIntoViewAndClick(btn);
             pause(1500);
             handleConfirmation();
-            pause(2000);
+            waitForPageStable();
             takeScreenshot("03-after-checkin");
 
             if (isAlreadyCheckedIn()) {

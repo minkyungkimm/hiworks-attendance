@@ -30,18 +30,18 @@ public class CheckoutJob implements Job {
         int scheduledHour = context.getJobDetail().getJobDataMap().getIntValue("scheduledHour");
         AttendanceState.Decision state = AttendanceState.get();
 
-        // 반차 잡(12, 14시): 반차 선택 시에만 실행
-        if ((scheduledHour == 12 || scheduledHour == 14) && state != AttendanceState.Decision.HALFDAY) {
+        // 반차 잡(12, 14시): 반차(HALFDAY_8 또는 HALFDAY_9) 선택 시에만 실행
+        if ((scheduledHour == 12 || scheduledHour == 14) && !isHalfday(state)) {
             log.info("===== 반차가 선택되지 않아 {}시 퇴근 잡 건너뜀 =====", scheduledHour);
             return;
         }
         // 정규 퇴근 잡(17, 18시): 반차 선택 시 건너뜀
-        if ((scheduledHour == 17 || scheduledHour == 18) && state == AttendanceState.Decision.HALFDAY) {
+        if ((scheduledHour == 17 || scheduledHour == 18) && isHalfday(state)) {
             log.info("===== 오후 반차 선택으로 {}시 정규 퇴근 잡 건너뜀 =====", scheduledHour);
             return;
         }
 
-        log.info("===== 퇴근 체크 작업 시작 ({}시 스케줄) =====", scheduledHour);
+        log.info("===== 퇴근 체크 작업 시작 ({}시 스케줄, 상태: {}) =====", scheduledHour, state);
 
         HiworksService service = new HiworksService(config);
         try {
@@ -55,5 +55,9 @@ public class CheckoutJob implements Job {
         } finally {
             service.quit();
         }
+    }
+
+    private static boolean isHalfday(AttendanceState.Decision d) {
+        return d == AttendanceState.Decision.HALFDAY_8 || d == AttendanceState.Decision.HALFDAY_9;
     }
 }

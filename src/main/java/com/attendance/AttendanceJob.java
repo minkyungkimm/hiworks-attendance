@@ -34,11 +34,13 @@ public class AttendanceJob implements Job {
         // 텔레그램 응답 기반으로 실행 여부 결정
         if (scheduledHour == 8 || scheduledHour == 9) {
             AttendanceState.Decision decision = AttendanceState.get();
-            if (scheduledHour == 8 && decision == AttendanceState.Decision.CHECKIN_9) {
-                log.info("===== 8시 스케줄러 건너뜀 (9시 출근으로 설정됨) =====");
+            boolean isNineAM = (decision == AttendanceState.Decision.CHECKIN_9
+                    || decision == AttendanceState.Decision.HALFDAY_9);
+            if (scheduledHour == 8 && isNineAM) {
+                log.info("===== 8시 스케줄러 건너뜀 (9시 출근으로 설정됨: {}) =====", decision);
                 return;
             }
-            if (scheduledHour == 9 && decision != AttendanceState.Decision.CHECKIN_9) {
+            if (scheduledHour == 9 && !isNineAM) {
                 log.info("===== 9시 스케줄러 건너뜀 (현재 상태: {}) =====", decision);
                 return;
             }

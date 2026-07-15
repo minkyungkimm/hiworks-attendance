@@ -8,7 +8,8 @@ public class AttendanceState {
         PENDING,    // 아직 응답 없음 → 기본값으로 8시 실행
         CHECKIN_8,  // 텔레그램에서 "8시 출근" 선택
         CHECKIN_9,  // 텔레그램에서 "9시 출근" 선택
-        HALFDAY,    // 텔레그램에서 "오후 반차" 선택 → 12시 또는 14시 자동 퇴근
+        HALFDAY_8,  // 8시 출근 + 오후 반차 → 12시 자동 퇴근
+        HALFDAY_9,  // 9시 출근 + 오후 반차 → 14시 자동 퇴근
         VACATION    // 텔레그램에서 "연차" 선택 → 출퇴근 체크 전체 건너뜀
     }
 
