@@ -578,12 +578,39 @@ public class HiworksService {
             String ts = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss"));
             Path dir = Paths.get("logs", "screenshots");
             Files.createDirectories(dir);
+            cleanupOldScreenshots(dir);
             File src = ((TakesScreenshot) driver).getScreenshotAs(OutputType.FILE);
             Path dest = dir.resolve(name + "-" + ts + ".png");
             Files.copy(src.toPath(), dest);
             log.info("스크린샷 저장: {}", dest.toAbsolutePath());
         } catch (Exception e) {
             log.warn("스크린샷 저장 실패: {}", e.getMessage());
+        }
+    }
+
+    private void cleanupOldScreenshots(Path dir) {
+        try {
+            long cutoff = System.currentTimeMillis() - (30L * 24 * 60 * 60 * 1000);
+            try (var stream = Files.list(dir)) {
+                stream.filter(p -> p.toString().endsWith(".png"))
+                        .filter(p -> {
+                            try {
+                                return Files.getLastModifiedTime(p).toMillis() < cutoff;
+                            } catch (Exception e) {
+                                return false;
+                            }
+                        })
+                        .forEach(p -> {
+                            try {
+                                Files.delete(p);
+                                log.debug("오래된 스크린샷 삭제: {}", p.getFileName());
+                            } catch (Exception e) {
+                                log.warn("스크린샷 삭제 실패: {}", p.getFileName());
+                            }
+                        });
+            }
+        } catch (Exception e) {
+            log.warn("스크린샷 정리 중 오류: {}", e.getMessage());
         }
     }
 
