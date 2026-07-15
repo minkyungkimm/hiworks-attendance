@@ -65,7 +65,7 @@
 
 - Java 17 이상 ([다운로드](https://www.oracle.com/java/technologies/downloads/#java17))
 - Maven 또는 IntelliJ IDEA
-- Chrome 브라우저
+- Chrome 브라우저 (ChromeDriver는 자동 설치됨)
 - 텔레그램 계정 + 봇 토큰
 
 ## 설치 방법
@@ -123,10 +123,14 @@ IntelliJ를 사용하는 경우 Maven 패널 → `package` 더블클릭
 PowerShell을 **관리자 권한**으로 열고 아래 명령어 실행:
 
 ```powershell
-schtasks /create /tn "HiworksAttendance" /tr "\"C:\경로\hiworks-attendance\run-scheduler.bat\"" /sc WEEKLY /d MON,TUE,WED,THU,FRI /st 07:25 /f
+schtasks /create /tn "HiworksAttendance" /tr "\"C:\실제경로\hiworks-attendance\run-scheduler.bat\"" /sc WEEKLY /d MON,TUE,WED,THU,FRI /st 07:25 /f
 ```
 
-등록 후에는 매일 평일 7:25에 프로그램이 자동으로 시작됩니다.
+> ⚠️ `C:\실제경로\hiworks-attendance\` 부분을 프로젝트가 실제로 위치한 경로로 변경하세요.  
+> 예) `C:\Users\사용자명\IdeaProjects\hiworks-attendance\run-scheduler.bat`
+
+등록 후에는 매일 평일 7:25에 프로그램이 자동으로 시작됩니다.  
+PC가 켜져 있어야 실행되며, 모니터만 꺼져 있는 상태(절전 아님)에서도 정상 동작합니다.
 
 ## 수동 실행
 
