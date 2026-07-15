@@ -473,17 +473,38 @@ public class HiworksService {
     }
 
     private boolean isAlreadyCheckedIn() {
-        List<WebElement> working = driver.findElements(By.xpath(
-                "//*[contains(text(),'근무중')]"
-        ));
-        if (working.stream().anyMatch(WebElement::isDisplayed)) {
-            return true;
+        try {
+            String pageText = driver.findElement(By.tagName("body")).getText();
+            String[] lines = pageText.split("[\\n\\r]+");
+
+            boolean inSection = false;
+            for (String rawLine : lines) {
+                String line = rawLine.trim();
+
+                if (line.contains("근무현황")
+                        && !line.contains("오늘") && !line.contains("주간") && !line.contains("월간")) {
+                    inSection = true;
+                    continue;
+                }
+
+                if (inSection && (line.contains("주간") || line.contains("월간"))) {
+                    break;
+                }
+
+                // 근무현황 섹션에서 "출근" 기록 탐색 ("출근하기" 버튼 텍스트 제외)
+                if (inSection && line.contains("출근") && !line.contains("출근하기")) {
+                    log.info("근무현황 섹션에서 출근 기록 확인됨: {}", line);
+                    return true;
+                }
+            }
+
+            log.info("근무현황 섹션에 출근 기록 없음 → 출근 미완료");
+            return false;
+
+        } catch (Exception e) {
+            log.error("출근 여부 확인 중 오류: {}", e.getMessage());
+            return false;
         }
-        List<WebElement> status = driver.findElements(By.xpath(
-                "//*[contains(text(),'근무현황')]/following-sibling::*//*[contains(text(),'출근')] | " +
-                "//*[contains(text(),'근무현황')]/parent::*//*[contains(text(),'출근')]"
-        ));
-        return status.stream().anyMatch(WebElement::isDisplayed);
     }
 
     private WebElement findCheckInButton() {
