@@ -144,25 +144,6 @@ schtasks /create /tn "HiworksAttendance" /tr "\"C:\경로\hiworks-attendance\run
 
 ## 트러블슈팅
 
-### Maven 빌드 시 JAVA_HOME 오류
-
-**증상**: IntelliJ 내장 Maven이 Java 17을 찾지 못해 빌드 실패  
-**해결**: JAVA_HOME을 명시적으로 지정해서 빌드
-```bash
-JAVA_HOME="C:\Program Files\Java\jdk-17" "/c/Program Files/JetBrains/IntelliJ IDEA .../mvn.cmd" package -DskipTests
-```
-
----
-
-### Git Bash에서 schtasks /create 오류
-
-**증상**: Git Bash에서 `schtasks /create`를 실행하면 `/create`를 경로로 인식해 오류  
-**해결**: PowerShell을 통해 실행
-```bash
-powershell.exe -Command "schtasks /create ..."
-```
-
----
 
 ### 출근 시간 잘못 읽는 문제
 
@@ -188,16 +169,3 @@ powershell.exe -Command "schtasks /create ..."
 2. body 텍스트 50자 이상 + 로딩 스피너 사라질 때까지 대기
 3. HH:mm 형식의 시간 텍스트가 실제로 나타날 때까지 대기 (최대 15초)
 
----
-
-### SLF4J 포맷 오류
-
-**증상**: `{:02d}` 형식 사용으로 런타임 로그 포맷 오류  
-**해결**: SLF4J는 `{}` 플레이스홀더만 지원. `String.format` 없이 `{}` 두 개로 분리해서 사용
-
----
-
-### Main.java 문법 오류
-
-**증상**: IDE가 `case` 앞에 `?` 문자를 삽입해 컴파일 오류  
-**해결**: 해당 `?` 문자 직접 삭제
