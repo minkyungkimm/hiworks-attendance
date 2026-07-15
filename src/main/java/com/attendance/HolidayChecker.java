@@ -35,33 +35,45 @@ public class HolidayChecker {
     private static synchronized void ensureCache(int year) {
         if (cachedYear == year) return;
 
-        try {
-            String url = String.format(API_URL, year);
-            HttpClient client = HttpClient.newBuilder()
-                    .connectTimeout(Duration.ofSeconds(10))
-                    .build();
-            HttpRequest request = HttpRequest.newBuilder(URI.create(url))
-                    .timeout(Duration.ofSeconds(10))
-                    .GET()
-                    .build();
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                String url = String.format(API_URL, year);
+                HttpClient client = HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofSeconds(10))
+                        .build();
+                HttpRequest request = HttpRequest.newBuilder(URI.create(url))
+                        .timeout(Duration.ofSeconds(10))
+                        .GET()
+                        .build();
 
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
-            JSONArray arr = new JSONArray(response.body());
+                HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+                JSONArray arr = new JSONArray(response.body());
 
-            Set<LocalDate> holidays = new HashSet<>();
-            for (int i = 0; i < arr.length(); i++) {
-                JSONObject obj = arr.getJSONObject(i);
-                holidays.add(LocalDate.parse(obj.getString("date")));
+                Set<LocalDate> holidays = new HashSet<>();
+                for (int i = 0; i < arr.length(); i++) {
+                    JSONObject obj = arr.getJSONObject(i);
+                    holidays.add(LocalDate.parse(obj.getString("date")));
+                }
+
+                cachedYear = year;
+                cachedHolidays = holidays;
+                log.info("{}년 한국 공휴일 {}개 로드 완료", year, holidays.size());
+                return;
+
+            } catch (Exception e) {
+                log.warn("공휴일 API 호출 실패 (시도 {}/3): {}", attempt, e.getMessage());
+                if (attempt < 3) {
+                    try {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
             }
-
-            cachedYear = year;
-            cachedHolidays = holidays;
-            log.info("{}년 한국 공휴일 {}개 로드 완료", year, holidays.size());
-
-        } catch (Exception e) {
-            log.warn("공휴일 API 호출 실패 (공휴일 체크 건너뜀): {}", e.getMessage());
-            cachedYear = year;
-            cachedHolidays = Collections.emptySet();
         }
+
+        // 3회 모두 실패 - cachedYear 미설정으로 다음 잡 실행 시 재시도
+        log.warn("공휴일 API 3회 모두 실패 - 오늘은 공휴일 체크 없이 진행, 다음 실행 시 재시도합니다.");
     }
 }
