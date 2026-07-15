@@ -61,6 +61,7 @@ public class TelegramBotService {
     public void sendReminderMessage() {
         try {
             AttendanceState.reset();
+            lastReminderMessageId.set(-1);    // 전날 알림 메시지 ID 초기화
             halfdayQuestionMessageId.set(-1); // 전날 반차 메시지 ID 초기화
 
             JSONArray row1 = new JSONArray();
