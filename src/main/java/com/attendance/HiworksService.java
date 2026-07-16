@@ -256,7 +256,12 @@ public class HiworksService {
             waitForPageStable();
             takeScreenshot("04-after-checkout");
 
-            log.info("퇴근 체크 완료!");
+            if (isAlreadyCheckedOut()) {
+                log.info("퇴근 체크 완료 확인됨.");
+                return true;
+            }
+
+            log.info("퇴근 버튼 클릭 완료 (성공으로 간주).");
             return true;
 
         } catch (Exception e) {
@@ -365,7 +370,7 @@ public class HiworksService {
     }
 
     private WebElement findCheckOutButton() {
-        return findVisible(By.xpath("//button[contains(.,'퇴근하기')]"));
+        return findVisible(By.xpath("//button[contains(.,'퇴근하기') and not(@disabled)]"));
     }
 
     private void waitForWorkPageContent() {
