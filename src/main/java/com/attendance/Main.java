@@ -52,14 +52,19 @@ public class Main {
         HiworksService service = new HiworksService(config);
         try {
             service.login();
-            java.util.Set<java.time.LocalDate> dates = service.fetchVacationDates();
-            if (dates.isEmpty()) {
-                log.info("전자결재에 등록된 연차 날짜가 없습니다.");
-            } else {
-                log.info("연차 날짜 {}개 발견:", dates.size());
-                dates.stream().sorted().forEach(d -> log.info("  → {}", d));
-                log.info("오늘({}) 연차 여부: {}", java.time.LocalDate.now(), dates.contains(java.time.LocalDate.now()));
-            }
+            VacationChecker.Result result = service.fetchVacationDates();
+            java.time.LocalDate today = java.time.LocalDate.now();
+
+            log.info("=== 연차(종일) {}개 ===", result.fullDays.size());
+            result.fullDays.stream().sorted().forEach(d -> log.info("  → {}", d));
+
+            log.info("=== 반차(4시간) {}개 ===", result.halfDays.size());
+            result.halfDays.stream().sorted().forEach(d -> log.info("  → {}", d));
+
+            log.info("오늘({}) 연차: {} / 반차: {}",
+                    today,
+                    result.fullDays.contains(today),
+                    result.halfDays.contains(today));
         } catch (Exception e) {
             log.error("오류 발생: {}", e.getMessage(), e);
         } finally {

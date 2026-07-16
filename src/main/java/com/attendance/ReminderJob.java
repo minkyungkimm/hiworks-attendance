@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
-import java.util.Set;
 
 public class ReminderJob implements Job {
 
@@ -37,21 +36,35 @@ public class ReminderJob implements Job {
         bot.sendReminderMessage();
     }
 
-    /** @return 연차 감지 시 true (버튼 메시지 생략 신호) */
+    /**
+     * @return true이면 버튼 메시지 생략 (연차), false이면 버튼 메시지 발송 (반차 or 없음)
+     */
     private boolean checkApprovalVacation(AppConfig config, TelegramBotService bot) {
         HiworksService service = new HiworksService(config);
         try {
             service.login();
-            Set<LocalDate> vacations = service.fetchVacationDates();
-            if (vacations.contains(LocalDate.now())) {
-                log.info("===== 전자결재에서 오늘({}) 연차 확인 — VACATION 자동 설정 =====", LocalDate.now());
+            VacationChecker.Result result = service.fetchVacationDates();
+            LocalDate today = LocalDate.now();
+
+            if (result.fullDays.contains(today)) {
+                log.info("===== 전자결재에서 오늘({}) 연차 확인 — VACATION 자동 설정 =====", today);
                 AttendanceState.set(AttendanceState.Decision.VACATION);
                 if (bot != null) {
                     bot.sendMessage("🎉 전자결재에서 오늘 연차가 확인되었습니다. 출퇴근 체크를 자동으로 건너뜁니다.");
                 }
-                return true;
+                return true; // 버튼 메시지 생략
             }
-            log.info("전자결재에서 오늘 연차 없음 — 정상 진행");
+
+            if (result.halfDays.contains(today)) {
+                log.info("===== 전자결재에서 오늘({}) 반차 확인 — HALFDAY_8 자동 설정 =====", today);
+                AttendanceState.set(AttendanceState.Decision.HALFDAY_8);
+                if (bot != null) {
+                    bot.sendMessage("🌅 전자결재에서 오늘 오후반차가 확인되었습니다. 8시 출근(12:01 퇴근)으로 자동 설정됩니다.\n아래 버튼으로 변경할 수 있습니다.");
+                }
+                return false; // 버튼 메시지는 발송 (9시로 변경 가능)
+            }
+
+            log.info("전자결재에서 오늘 연차/반차 없음 — 정상 진행");
         } catch (Exception e) {
             log.warn("전자결재 연차 확인 실패 (정상 진행): {}", e.getMessage());
         } finally {

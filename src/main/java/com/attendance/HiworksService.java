@@ -150,7 +150,7 @@ public class HiworksService {
     // 출석체크
     // ──────────────────────────────────────────────
 
-    public Set<LocalDate> fetchVacationDates() {
+    public VacationChecker.Result fetchVacationDates() {
         String url = String.format(APPROVAL_BOX_URL, config.getCompany());
         return VacationChecker.parse(driver, url);
     }
