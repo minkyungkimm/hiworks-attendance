@@ -27,6 +27,10 @@ public class Main {
                     log.info("[오후 반차] 반차 퇴근 체크를 실행합니다.");
                     runHalfdayCheckout(config);
                     return;
+                case "--vacation-check":
+                    log.info("[연차 확인] 전자결재 기안 목록에서 연차 날짜를 조회합니다.");
+                    runVacationCheck(config);
+                    return;
             }
         }
 
@@ -42,6 +46,25 @@ public class Main {
         }));
 
         Thread.currentThread().join();
+    }
+
+    private static void runVacationCheck(AppConfig config) {
+        HiworksService service = new HiworksService(config);
+        try {
+            service.login();
+            java.util.Set<java.time.LocalDate> dates = service.fetchVacationDates();
+            if (dates.isEmpty()) {
+                log.info("전자결재에 등록된 연차 날짜가 없습니다.");
+            } else {
+                log.info("연차 날짜 {}개 발견:", dates.size());
+                dates.stream().sorted().forEach(d -> log.info("  → {}", d));
+                log.info("오늘({}) 연차 여부: {}", java.time.LocalDate.now(), dates.contains(java.time.LocalDate.now()));
+            }
+        } catch (Exception e) {
+            log.error("오류 발생: {}", e.getMessage(), e);
+        } finally {
+            service.quit();
+        }
     }
 
     private static void runCheckin(AppConfig config) {
