@@ -30,17 +30,28 @@ public class CheckoutJob implements Job {
         int scheduledHour = context.getJobDetail().getJobDataMap().getIntValue("scheduledHour");
         AttendanceState.Decision state = AttendanceState.get();
 
-        // 반차 잡(12, 14시): 반차(HALFDAY_8 또는 HALFDAY_9) 선택 시에만 실행
-        if ((scheduledHour == 12 || scheduledHour == 14) && !isHalfday(state)) {
-            log.info("===== 반차가 선택되지 않아 {}시 퇴근 잡 건너뜀 =====", scheduledHour);
+        // 오후반차 잡(12, 14시): 오후반차(HALFDAY_8/9) 상태에서만 실행
+        if ((scheduledHour == 12 || scheduledHour == 14) && !isAfternoonHalfday(state)) {
+            log.info("===== 오후반차 미선택 — {}시 반차 퇴근 잡 건너뜀 (상태: {}) =====", scheduledHour, state);
             return;
         }
-        // 정규 퇴근 잡(17, 18시): 반차 선택 시 건너뜀
-        if ((scheduledHour == 17 || scheduledHour == 18) && isHalfday(state)) {
-            log.info("===== 오후 반차 선택으로 {}시 정규 퇴근 잡 건너뜀 =====", scheduledHour);
+        // 정규 퇴근 잡(17, 18시): 오후반차 선택 시 건너뜀
+        if ((scheduledHour == 17 || scheduledHour == 18) && isAfternoonHalfday(state)) {
+            log.info("===== 오후반차로 {}시 정규 퇴근 잡 건너뜀 =====", scheduledHour);
+            return;
+        }
+        // 오전반차 라우팅: MORNING_HALFDAY_8 → 17시, MORNING_HALFDAY_9 → 18시
+        if (scheduledHour == 17 && state == AttendanceState.Decision.MORNING_HALFDAY_9) {
+            log.info("===== 오전반차(9시) — 17시 잡 건너뜀, 18시에 퇴근 =====");
+            return;
+        }
+        if (scheduledHour == 18 && state == AttendanceState.Decision.MORNING_HALFDAY_8) {
+            log.info("===== 오전반차(8시) — 18시 잡 건너뜀, 17시에 퇴근 =====");
             return;
         }
 
+        boolean isMorningHalfday = state == AttendanceState.Decision.MORNING_HALFDAY_8
+                || state == AttendanceState.Decision.MORNING_HALFDAY_9;
         log.info("===== 퇴근 체크 작업 시작 ({}시 스케줄, 상태: {}) =====", scheduledHour, state);
 
         int maxRetry = 3;
@@ -48,7 +59,7 @@ public class CheckoutJob implements Job {
             HiworksService service = new HiworksService(config);
             try {
                 service.login();
-                boolean done = service.checkAndDoCheckout(scheduledHour);
+                boolean done = service.checkAndDoCheckout(scheduledHour, isMorningHalfday);
                 if (done) {
                     log.info("===== 퇴근 체크 완료 (시도 {}/{}) =====", attempt, maxRetry);
                     TelegramBotService bot = TelegramBotService.getInstance();
@@ -76,7 +87,7 @@ public class CheckoutJob implements Job {
         log.error("===== 최대 재시도({}) 초과. 퇴근 체크 최종 실패 =====", maxRetry);
     }
 
-    private static boolean isHalfday(AttendanceState.Decision d) {
+    private static boolean isAfternoonHalfday(AttendanceState.Decision d) {
         return d == AttendanceState.Decision.HALFDAY_8 || d == AttendanceState.Decision.HALFDAY_9;
     }
 }

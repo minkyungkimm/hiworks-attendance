@@ -12,19 +12,23 @@ import org.slf4j.LoggerFactory;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
  * 전자결재 내문서함(기안)에서 올해 휴가신청서 문서를 열어
- * 휴가 신청 섹션의 각 줄을 분석해 연차/반차 날짜를 반환한다.
+ * 휴가 신청 섹션의 각 줄을 분석해 연차/반차 날짜와 종류를 반환한다.
  *
- * 시간 범위로 HALFDAY_8/9 구분:
- *   08:xx or 13:xx 시작 → HALFDAY_8 (8시 출근)
- *   09:xx or 14:xx 시작 → HALFDAY_9 (9시 출근)
+ * 시간 범위 → AttendanceState.Decision 매핑:
+ *   08:xx~12:xx → MORNING_HALFDAY_8  (오전반차, 8시 선택: 12:59 출근 / 17:01 퇴근)
+ *   09:xx~14:xx → MORNING_HALFDAY_9  (오전반차, 9시 선택: 13:59 출근 / 18:01 퇴근)
+ *   13:xx~17:xx → HALFDAY_8          (오후반차, 8시 출근: 07:59 출근 / 12:01 퇴근)
+ *   14:xx~18:xx → HALFDAY_9          (오후반차, 9시 출근: 08:59 출근 / 14:01 퇴근)
  */
 public class VacationChecker {
 
@@ -34,34 +38,31 @@ public class VacationChecker {
     private static final Pattern TIME_RANGE = Pattern.compile("(\\d{1,2}):(\\d{2})~(\\d{1,2}):(\\d{2})");
 
     public static class Result {
-        public final Set<LocalDate> fullDays;   // 종일 연차
-        public final Set<LocalDate> halfDay8;   // 반차 — 8시 출근 (HALFDAY_8)
-        public final Set<LocalDate> halfDay9;   // 반차 — 9시 출근 (HALFDAY_9)
+        public final Set<LocalDate> fullDays;
+        /** 날짜 → 설정할 AttendanceState (HALFDAY_8/9, MORNING_HALFDAY_8/9) */
+        public final Map<LocalDate, AttendanceState.Decision> halfDays;
 
-        public Result(Set<LocalDate> fullDays, Set<LocalDate> halfDay8, Set<LocalDate> halfDay9) {
+        public Result(Set<LocalDate> fullDays, Map<LocalDate, AttendanceState.Decision> halfDays) {
             this.fullDays = fullDays;
-            this.halfDay8 = halfDay8;
-            this.halfDay9 = halfDay9;
+            this.halfDays = halfDays;
         }
     }
 
     public static Result parse(WebDriver driver, String approvalUrl) {
         Set<LocalDate> fullDays = new HashSet<>();
-        Set<LocalDate> halfDay8 = new HashSet<>();
-        Set<LocalDate> halfDay9 = new HashSet<>();
+        Map<LocalDate, AttendanceState.Decision> halfDays = new HashMap<>();
         try {
             String company = extractCompany(approvalUrl);
             List<String> docUrls = collectDocumentUrls(driver, approvalUrl, company);
             log.info("올해 휴가신청서 {}개 상세 분석", docUrls.size());
             for (String url : docUrls) {
-                parseDocumentDetail(driver, url, fullDays, halfDay8, halfDay9);
+                parseDocumentDetail(driver, url, fullDays, halfDays);
             }
-            log.info("연차(종일): {} | 반차 HALFDAY_8: {} | 반차 HALFDAY_9: {}",
-                    fullDays, halfDay8, halfDay9);
+            log.info("연차(종일): {} | 반차: {}", fullDays, halfDays);
         } catch (Exception e) {
             log.error("전자결재 연차 파싱 실패: {}", e.getMessage());
         }
-        return new Result(fullDays, halfDay8, halfDay9);
+        return new Result(fullDays, halfDays);
     }
 
     private static String extractCompany(String approvalUrl) {
@@ -143,8 +144,7 @@ public class VacationChecker {
 
     private static void parseDocumentDetail(WebDriver driver, String url,
                                             Set<LocalDate> fullDays,
-                                            Set<LocalDate> halfDay8,
-                                            Set<LocalDate> halfDay9) {
+                                            Map<LocalDate, AttendanceState.Decision> halfDays) {
         try {
             driver.get(url);
             new WebDriverWait(driver, Duration.ofSeconds(15)).until(
@@ -175,30 +175,57 @@ public class VacationChecker {
 
                 if (text.contains("종일")) {
                     fullDays.add(date);
-                    log.info("연차(종일) 등록: {}", date);
+                    log.info("[연차] 종일 등록: {}", date);
                 } else {
-                    // 4시간 또는 시간 범위 → 반차
                     Matcher timeMatcher = TIME_RANGE.matcher(text);
-                    if (timeMatcher.find()) {
-                        int startHour = Integer.parseInt(timeMatcher.group(1));
-                        // 9시 출근: 09:xx(오전반차) or 14:xx(오후반차)
-                        // 8시 출근: 08:xx(오전반차) or 13:xx(오후반차)
-                        if (startHour == 9 || startHour == 14) {
-                            halfDay9.add(date);
-                            log.info("반차(HALFDAY_9, 9시 출근) 등록: {} — {}", date, text);
-                        } else {
-                            halfDay8.add(date);
-                            log.info("반차(HALFDAY_8, 8시 출근) 등록: {} — {}", date, text);
-                        }
-                    } else if (text.contains("4시간")) {
-                        // 시간 범위 없이 "4시간"만 있는 경우 — 기본값 HALFDAY_8
-                        halfDay8.add(date);
-                        log.info("반차(HALFDAY_8, 기본값) 등록: {} — {}", date, text);
-                    }
+                    AttendanceState.Decision decision = resolveHalfDayDecision(timeMatcher, text);
+                    halfDays.put(date, decision);
+                    logHalfDay(date, decision, text);
                 }
             }
         } catch (Exception e) {
             log.warn("문서 상세 파싱 실패 ({}): {}", url, e.getMessage());
+        }
+    }
+
+    /**
+     * 시간 범위 시작 시각으로 오전/오후 반차 및 8시/9시 출근 구분
+     *   08:xx → MORNING_HALFDAY_8  (오전반차, 8시 선택)
+     *   09:xx → MORNING_HALFDAY_9  (오전반차, 9시 선택)
+     *   13:xx → HALFDAY_8          (오후반차, 8시 출근)
+     *   14:xx → HALFDAY_9          (오후반차, 9시 출근)
+     */
+    private static AttendanceState.Decision resolveHalfDayDecision(Matcher timeMatcher, String text) {
+        if (timeMatcher.find()) {
+            int startHour = Integer.parseInt(timeMatcher.group(1));
+            switch (startHour) {
+                case 9:  return AttendanceState.Decision.MORNING_HALFDAY_9;
+                case 13: return AttendanceState.Decision.HALFDAY_8;
+                case 14: return AttendanceState.Decision.HALFDAY_9;
+                case 8:
+                default: return AttendanceState.Decision.MORNING_HALFDAY_8;
+            }
+        }
+        // 시간 없이 "4시간"만 있는 경우 — 기본값
+        return AttendanceState.Decision.MORNING_HALFDAY_8;
+    }
+
+    private static void logHalfDay(LocalDate date, AttendanceState.Decision decision, String text) {
+        switch (decision) {
+            case MORNING_HALFDAY_8:
+                log.info("[오전반차] MORNING_HALFDAY_8 등록: {} — {} (12:59 출근 / 17:01 퇴근)", date, text);
+                break;
+            case MORNING_HALFDAY_9:
+                log.info("[오전반차] MORNING_HALFDAY_9 등록: {} — {} (13:59 출근 / 18:01 퇴근)", date, text);
+                break;
+            case HALFDAY_8:
+                log.info("[오후반차] HALFDAY_8 등록: {} — {} (07:59 출근 / 12:01 퇴근)", date, text);
+                break;
+            case HALFDAY_9:
+                log.info("[오후반차] HALFDAY_9 등록: {} — {} (08:59 출근 / 14:01 퇴근)", date, text);
+                break;
+            default:
+                log.info("[반차] {} 등록: {}", decision, date);
         }
     }
 

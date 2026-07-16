@@ -179,6 +179,11 @@ public class HiworksService {
 
     // 자동 실행 (CheckoutJob): scheduledHour(17 또는 18)에 따라 실행 여부 판단
     public boolean checkAndDoCheckout(int scheduledHour) {
+        return checkAndDoCheckout(scheduledHour, false);
+    }
+
+    // 오전반차 모드: bypassCheckinTimeCheck=true 시 8:20 기준 체크 건너뜀
+    public boolean checkAndDoCheckout(int scheduledHour, boolean bypassCheckinTimeCheck) {
         log.info("근무 페이지 이동 (퇴근): {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
         waitForWorkPageContent();
@@ -221,6 +226,10 @@ public class HiworksService {
                     return false;
                 }
                 targetCheckout = LocalTime.of(14, 0);
+            } else if (bypassCheckinTimeCheck) {
+                // 오전반차: 체크인 시간(8:20) 체크 없이 scheduledHour 기준으로 퇴근
+                targetCheckout = scheduledHour == 17 ? CHECKOUT_5PM : CHECKOUT_6PM;
+                log.info("오전반차 모드 — 퇴근 가능 시각 {}:00 (8:20 기준 체크 생략)", scheduledHour);
             } else {
                 targetCheckout = determineCheckoutTime(checkinTime);
 

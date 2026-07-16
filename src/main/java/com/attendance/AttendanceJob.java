@@ -31,20 +31,41 @@ public class AttendanceJob implements Job {
                 ? context.getJobDetail().getJobDataMap().getIntValue("scheduledHour")
                 : -1;
 
-        // 텔레그램 응답 기반으로 실행 여부 결정
+        AttendanceState.Decision state = AttendanceState.get();
+        boolean isMorningHalfday = state == AttendanceState.Decision.MORNING_HALFDAY_8
+                || state == AttendanceState.Decision.MORNING_HALFDAY_9;
+
         if (scheduledHour == 8 || scheduledHour == 9) {
-            AttendanceState.Decision decision = AttendanceState.get();
-            boolean isNineAM = (decision == AttendanceState.Decision.CHECKIN_9
-                    || decision == AttendanceState.Decision.HALFDAY_9);
+            // 오전반차는 12:59 / 13:59 잡에서 처리 — 7:59 / 8:59 잡 건너뜀
+            if (isMorningHalfday) {
+                log.info("===== 오전반차 — {}시 조기 출근 잡 건너뜀 (12/13시 출근 예정) =====", scheduledHour);
+                return;
+            }
+            boolean isNineAM = state == AttendanceState.Decision.CHECKIN_9
+                    || state == AttendanceState.Decision.HALFDAY_9;
             if (scheduledHour == 8 && isNineAM) {
-                log.info("===== 8시 스케줄러 건너뜀 (9시 출근으로 설정됨: {}) =====", decision);
+                log.info("===== 8시 스케줄러 건너뜀 (9시 출근으로 설정됨: {}) =====", state);
                 return;
             }
             if (scheduledHour == 9 && !isNineAM) {
-                log.info("===== 9시 스케줄러 건너뜀 (현재 상태: {}) =====", decision);
+                log.info("===== 9시 스케줄러 건너뜀 (현재 상태: {}) =====", state);
                 return;
             }
-            log.info("===== 출석체크 작업 시작 ({}시 스케줄, 상태: {}) =====", scheduledHour, decision);
+            log.info("===== 출석체크 작업 시작 ({}시 스케줄, 상태: {}) =====", scheduledHour, state);
+        } else if (scheduledHour == 13) {
+            // 오전반차 8시 선택 — 12:59 출근
+            if (state != AttendanceState.Decision.MORNING_HALFDAY_8) {
+                log.info("===== MORNING_HALFDAY_8 아닌 상태 — 13시 잡 건너뜀 ({}) =====", state);
+                return;
+            }
+            log.info("===== 오전반차(8시) 출근 잡 시작 — 12:59 대기 (상태: {}) =====", state);
+        } else if (scheduledHour == 14) {
+            // 오전반차 9시 선택 — 13:59 출근
+            if (state != AttendanceState.Decision.MORNING_HALFDAY_9) {
+                log.info("===== MORNING_HALFDAY_9 아닌 상태 — 14시 잡 건너뜀 ({}) =====", state);
+                return;
+            }
+            log.info("===== 오전반차(9시) 출근 잡 시작 — 13:59 대기 (상태: {}) =====", state);
         } else {
             log.info("===== 출석체크 작업 시작 =====");
         }
