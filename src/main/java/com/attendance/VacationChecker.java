@@ -110,13 +110,17 @@ public class VacationChecker {
     }
 
     private static void extractDates(String title, Set<LocalDate> dates) {
+        int thisYear = LocalDate.now().getYear();
+
         // 날짜 범위 우선 처리: YYYY년 M월 D일~YYYY년 M월 D일
         Matcher rangeMatcher = RANGE_DATE.matcher(title);
         if (rangeMatcher.find()) {
             LocalDate start = toDate(rangeMatcher.group(1), rangeMatcher.group(2), rangeMatcher.group(3));
             LocalDate end   = toDate(rangeMatcher.group(4), rangeMatcher.group(5), rangeMatcher.group(6));
             if (start != null && end != null && !end.isBefore(start)) {
-                start.datesUntil(end.plusDays(1)).forEach(dates::add);
+                start.datesUntil(end.plusDays(1))
+                        .filter(d -> d.getYear() == thisYear)
+                        .forEach(dates::add);
                 log.info("범위 연차 등록: {} ~ {}", start, end);
             }
             return;
@@ -132,7 +136,7 @@ public class VacationChecker {
         Matcher singleMatcher = SINGLE_DATE.matcher(title);
         if (singleMatcher.find()) {
             LocalDate date = toDate(singleMatcher.group(1), singleMatcher.group(2), singleMatcher.group(3));
-            if (date != null) {
+            if (date != null && date.getYear() == thisYear) {
                 dates.add(date);
                 log.info("연차 날짜 등록: {}", date);
             }
