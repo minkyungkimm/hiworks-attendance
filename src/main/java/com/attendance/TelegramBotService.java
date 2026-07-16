@@ -65,10 +65,11 @@ public class TelegramBotService {
             halfdayQuestionMessageId.set(-1); // 전날 반차 메시지 ID 초기화
 
             JSONArray row1 = new JSONArray();
-            row1.put(new JSONObject().put("text", "✅ 네, 8시 출근").put("callback_data", "CHECKIN_8"));
-            row1.put(new JSONObject().put("text", "❌ 아니요, 9시").put("callback_data", "CHECKIN_9"));
+            row1.put(new JSONObject().put("text", "🕗 8시 출근").put("callback_data", "CHECKIN_8"));
+            row1.put(new JSONObject().put("text", "🕘 9시 출근").put("callback_data", "CHECKIN_9"));
 
             JSONArray row2 = new JSONArray();
+            row2.put(new JSONObject().put("text", "🌄 오전 반차").put("callback_data", "MORNING_HALFDAY"));
             row2.put(new JSONObject().put("text", "🌅 오후 반차").put("callback_data", "HALFDAY"));
 
             JSONArray row3 = new JSONArray();
@@ -79,7 +80,7 @@ public class TelegramBotService {
 
             JSONObject body = new JSONObject();
             body.put("chat_id", chatId);
-            body.put("text", "🕗 오늘 8시에 출근하시나요?\n\n버튼을 누르지 않으면 8시 자동 출근 처리됩니다.");
+            body.put("text", "🕐 오늘 몇시 출근하시나요?\n\n버튼을 누르지 않으면 8시 자동 출근 처리됩니다.");
             body.put("reply_markup", replyMarkup);
 
             HttpResponse<String> response = post("/sendMessage", body.toString());
@@ -166,7 +167,7 @@ public class TelegramBotService {
                 AttendanceState.set(AttendanceState.Decision.CHECKIN_8);
                 log.info("텔레그램 버튼 클릭: CHECKIN_8");
                 answerCallbackQuery(queryId);
-                sendMessage("✅ 8시 출근으로 설정되었습니다. 8:00에 자동 출근 처리됩니다.");
+                sendMessage("✅ 8시 출근으로 설정되었습니다. 8시에 자동 출근 처리됩니다.");
                 break;
             }
             case "CHECKIN_9": {
@@ -174,7 +175,30 @@ public class TelegramBotService {
                 AttendanceState.set(AttendanceState.Decision.CHECKIN_9);
                 log.info("텔레그램 버튼 클릭: CHECKIN_9");
                 answerCallbackQuery(queryId);
-                sendMessage("✅ 9시 출근으로 설정되었습니다. 9:00에 자동 출근 처리됩니다.");
+                sendMessage("✅ 9시 출근으로 설정되었습니다. 9시에 자동 출근 처리됩니다.");
+                break;
+            }
+            case "MORNING_HALFDAY": {
+                if (current == AttendanceState.Decision.MORNING_HALFDAY_8 || current == AttendanceState.Decision.MORNING_HALFDAY_9) { answerCallbackQuery(queryId); return; }
+                log.info("텔레그램 버튼 클릭: MORNING_HALFDAY → 기준 선택 메시지 전송");
+                answerCallbackQuery(queryId);
+                sendMorningHalfdayTimeQuestion();
+                break;
+            }
+            case "MORNING_HALFDAY_8": {
+                if (current == AttendanceState.Decision.MORNING_HALFDAY_8) { answerCallbackQuery(queryId); return; }
+                AttendanceState.set(AttendanceState.Decision.MORNING_HALFDAY_8);
+                log.info("텔레그램 버튼 클릭: MORNING_HALFDAY_8 → 오전반차 8시 기준");
+                answerCallbackQuery(queryId);
+                sendMessage("🌄 1시 출근 + 오전 반차로 설정되었습니다.\n1시 출근 → 17시 자동 퇴근 처리됩니다.");
+                break;
+            }
+            case "MORNING_HALFDAY_9": {
+                if (current == AttendanceState.Decision.MORNING_HALFDAY_9) { answerCallbackQuery(queryId); return; }
+                AttendanceState.set(AttendanceState.Decision.MORNING_HALFDAY_9);
+                log.info("텔레그램 버튼 클릭: MORNING_HALFDAY_9 → 오전반차 9시 기준");
+                answerCallbackQuery(queryId);
+                sendMessage("🌄 2시 출근 + 오전 반차로 설정되었습니다.\n2시 출근 → 18시 자동 퇴근 처리됩니다.");
                 break;
             }
             case "HALFDAY": {
@@ -189,7 +213,7 @@ public class TelegramBotService {
                 AttendanceState.set(AttendanceState.Decision.HALFDAY_8);
                 log.info("텔레그램 버튼 클릭: HALFDAY_8 → 8시 출근 + 오후 반차");
                 answerCallbackQuery(queryId);
-                sendMessage("🌅 8시 출근 + 오후 반차로 설정되었습니다.\n8:00 출근 → 12:00 자동 퇴근 처리됩니다.");
+                sendMessage("🌅 8시 출근 + 오후 반차로 설정되었습니다.\n8시 출근 → 12시 자동 퇴근 처리됩니다.");
                 break;
             }
             case "HALFDAY_9": {
@@ -197,7 +221,7 @@ public class TelegramBotService {
                 AttendanceState.set(AttendanceState.Decision.HALFDAY_9);
                 log.info("텔레그램 버튼 클릭: HALFDAY_9 → 9시 출근 + 오후 반차");
                 answerCallbackQuery(queryId);
-                sendMessage("🌅 9시 출근 + 오후 반차로 설정되었습니다.\n9:00 출근 → 14:00 자동 퇴근 처리됩니다.");
+                sendMessage("🌅 9시 출근 + 오후 반차로 설정되었습니다.\n9시 출근 → 14시 자동 퇴근 처리됩니다.");
                 break;
             }
             case "VACATION": {
@@ -210,6 +234,34 @@ public class TelegramBotService {
             }
             default:
                 break;
+        }
+    }
+
+    private void sendMorningHalfdayTimeQuestion() {
+        try {
+            JSONArray row = new JSONArray();
+            row.put(new JSONObject().put("text", "🕐 1시 출근").put("callback_data", "MORNING_HALFDAY_8"));
+            row.put(new JSONObject().put("text", "🕑 2시 출근").put("callback_data", "MORNING_HALFDAY_9"));
+
+            JSONObject replyMarkup = new JSONObject();
+            replyMarkup.put("inline_keyboard", new JSONArray().put(row));
+
+            JSONObject body = new JSONObject();
+            body.put("chat_id", chatId);
+            body.put("text", "🌄 오전 반차 - 몇 시 출근하시나요?");
+            body.put("reply_markup", replyMarkup);
+
+            HttpResponse<String> response = post("/sendMessage", body.toString());
+            JSONObject result = new JSONObject(response.body());
+            if (result.getBoolean("ok")) {
+                long msgId = result.getJSONObject("result").getLong("message_id");
+                halfdayQuestionMessageId.set(msgId);
+                log.info("오전반차 기준 선택 메시지 전송 완료 (message_id={})", msgId);
+            } else {
+                log.warn("오전반차 기준 선택 메시지 전송 실패: {}", response.body());
+            }
+        } catch (Exception e) {
+            log.error("오전반차 기준 선택 메시지 전송 중 오류: {}", e.getMessage());
         }
     }
 
