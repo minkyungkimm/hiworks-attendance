@@ -412,7 +412,7 @@ public class HiworksService {
                     Matcher m = Pattern.compile("\\b([0-1]?[0-9]):([0-5][0-9])\\b").matcher(bodyText);
                     while (m.find()) {
                         int hour = Integer.parseInt(m.group(1));
-                        if (hour >= 5 && hour <= 12) return true;
+                        if (hour >= 5 && hour <= 14) return true;
                     }
                     return false;
                 } catch (Exception e) {

@@ -37,7 +37,7 @@ public class ReminderJob implements Job {
     }
 
     /**
-     * @return true이면 버튼 메시지 생략 (연차), false이면 버튼 메시지 발송 (반차 or 없음)
+     * @return true이면 버튼 메시지 생략 (연차 또는 반차 감지), false이면 버튼 메시지 발송
      */
     private boolean checkApprovalVacation(AppConfig config, TelegramBotService bot) {
         HiworksService service = new HiworksService(config);
