@@ -402,7 +402,7 @@ public class HiworksService {
         waitForPageStable();
     }
 
-    // 출근 가능 시간대(05:00~12:59)의 시간 텍스트가 나타날 때까지 대기
+    // 출근 가능 시간대(05:00~14:59)의 시간 텍스트가 나타날 때까지 대기
     // 현재 시각(15:33 등)은 범위 밖이므로 무시됨
     private void waitForTimeTextVisible() {
         try {

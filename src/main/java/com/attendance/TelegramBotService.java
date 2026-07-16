@@ -11,7 +11,6 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.concurrent.atomic.AtomicLong;
 
 public class TelegramBotService {
 
@@ -22,8 +21,6 @@ public class TelegramBotService {
     private final String apiBase;
     private final String chatId;
     private final HttpClient httpClient;
-    private final AtomicLong lastReminderMessageId = new AtomicLong(-1);
-    private final AtomicLong halfdayQuestionMessageId = new AtomicLong(-1);
     private volatile boolean running = false;
     private volatile boolean morningHalfdayAsked = false;
     private volatile boolean halfdayAsked = false;
@@ -63,8 +60,6 @@ public class TelegramBotService {
     public void sendReminderMessage() {
         try {
             AttendanceState.reset();
-            lastReminderMessageId.set(-1);
-            halfdayQuestionMessageId.set(-1);
             morningHalfdayAsked = false;
             halfdayAsked = false;
 
@@ -90,9 +85,8 @@ public class TelegramBotService {
             HttpResponse<String> response = post("/sendMessage", body.toString());
             JSONObject result = new JSONObject(response.body());
             if (result.getBoolean("ok")) {
-                long msgId = result.getJSONObject("result").getLong("message_id");
-                lastReminderMessageId.set(msgId);
-                log.info("텔레그램 출근 알림 발송 완료 (message_id={})", msgId);
+                log.info("텔레그램 출근 알림 발송 완료 (message_id={})",
+                        result.getJSONObject("result").getLong("message_id"));
             } else {
                 log.warn("텔레그램 메시지 전송 실패: {}", response.body());
             }
@@ -278,9 +272,8 @@ public class TelegramBotService {
             HttpResponse<String> response = post("/sendMessage", body.toString());
             JSONObject result = new JSONObject(response.body());
             if (result.getBoolean("ok")) {
-                long msgId = result.getJSONObject("result").getLong("message_id");
-                halfdayQuestionMessageId.set(msgId);
-                log.info("오전반차 기준 선택 메시지 전송 완료 (message_id={})", msgId);
+                log.info("오전반차 기준 선택 메시지 전송 완료 (message_id={})",
+                        result.getJSONObject("result").getLong("message_id"));
             } else {
                 log.warn("오전반차 기준 선택 메시지 전송 실패: {}", response.body());
             }
@@ -306,9 +299,8 @@ public class TelegramBotService {
             HttpResponse<String> response = post("/sendMessage", body.toString());
             JSONObject result = new JSONObject(response.body());
             if (result.getBoolean("ok")) {
-                long msgId = result.getJSONObject("result").getLong("message_id");
-                halfdayQuestionMessageId.set(msgId);
-                log.info("반차 출근시간 선택 메시지 전송 완료 (message_id={})", msgId);
+                log.info("반차 출근시간 선택 메시지 전송 완료 (message_id={})",
+                        result.getJSONObject("result").getLong("message_id"));
             } else {
                 log.warn("반차 출근시간 선택 메시지 전송 실패: {}", response.body());
             }
