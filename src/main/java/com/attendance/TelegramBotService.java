@@ -25,6 +25,8 @@ public class TelegramBotService {
     private final AtomicLong lastReminderMessageId = new AtomicLong(-1);
     private final AtomicLong halfdayQuestionMessageId = new AtomicLong(-1);
     private volatile boolean running = false;
+    private volatile boolean morningHalfdayAsked = false;
+    private volatile boolean halfdayAsked = false;
     private Thread pollingThread;
 
     private TelegramBotService(String botToken, String chatId) {
@@ -61,8 +63,10 @@ public class TelegramBotService {
     public void sendReminderMessage() {
         try {
             AttendanceState.reset();
-            lastReminderMessageId.set(-1);    // 전날 알림 메시지 ID 초기화
-            halfdayQuestionMessageId.set(-1); // 전날 반차 메시지 ID 초기화
+            lastReminderMessageId.set(-1);
+            halfdayQuestionMessageId.set(-1);
+            morningHalfdayAsked = false;
+            halfdayAsked = false;
 
             JSONArray row1 = new JSONArray();
             row1.put(new JSONObject().put("text", "🕗 8시 출근").put("callback_data", "CHECKIN_8"));
@@ -183,6 +187,11 @@ public class TelegramBotService {
                 break;
             }
             case "MORNING_HALFDAY": {
+                if (morningHalfdayAsked) {
+                    answerCallbackQuery(queryId, "이미 출근 시간 선택 중입니다. 아래 버튼을 눌러주세요.");
+                    return;
+                }
+                morningHalfdayAsked = true;
                 log.info("텔레그램 버튼 클릭: MORNING_HALFDAY → 기준 선택 메시지 전송");
                 answerCallbackQuery(queryId);
                 sendMorningHalfdayTimeQuestion();
@@ -203,6 +212,11 @@ public class TelegramBotService {
                 break;
             }
             case "HALFDAY": {
+                if (halfdayAsked) {
+                    answerCallbackQuery(queryId, "이미 출근 시간 선택 중입니다. 아래 버튼을 눌러주세요.");
+                    return;
+                }
+                halfdayAsked = true;
                 log.info("텔레그램 버튼 클릭: HALFDAY → 출근시간 선택 메시지 전송");
                 answerCallbackQuery(queryId);
                 sendHalfdayTimeQuestion();
