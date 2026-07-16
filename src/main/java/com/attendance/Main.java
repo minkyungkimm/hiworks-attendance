@@ -58,13 +58,17 @@ public class Main {
             log.info("=== 연차(종일) {}개 ===", result.fullDays.size());
             result.fullDays.stream().sorted().forEach(d -> log.info("  → {}", d));
 
-            log.info("=== 반차(4시간) {}개 ===", result.halfDays.size());
-            result.halfDays.stream().sorted().forEach(d -> log.info("  → {}", d));
+            log.info("=== 반차 HALFDAY_8(8시 출근) {}개 ===", result.halfDay8.size());
+            result.halfDay8.stream().sorted().forEach(d -> log.info("  → {}", d));
 
-            log.info("오늘({}) 연차: {} / 반차: {}",
+            log.info("=== 반차 HALFDAY_9(9시 출근) {}개 ===", result.halfDay9.size());
+            result.halfDay9.stream().sorted().forEach(d -> log.info("  → {}", d));
+
+            log.info("오늘({}) 연차: {} / 반차8: {} / 반차9: {}",
                     today,
                     result.fullDays.contains(today),
-                    result.halfDays.contains(today));
+                    result.halfDay8.contains(today),
+                    result.halfDay9.contains(today));
         } catch (Exception e) {
             log.error("오류 발생: {}", e.getMessage(), e);
         } finally {

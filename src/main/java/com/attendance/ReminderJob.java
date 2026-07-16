@@ -55,13 +55,22 @@ public class ReminderJob implements Job {
                 return true; // 버튼 메시지 생략
             }
 
-            if (result.halfDays.contains(today)) {
+            if (result.halfDay8.contains(today)) {
                 log.info("===== 전자결재에서 오늘({}) 반차 확인 — HALFDAY_8 자동 설정 =====", today);
                 AttendanceState.set(AttendanceState.Decision.HALFDAY_8);
                 if (bot != null) {
-                    bot.sendMessage("🌅 전자결재에서 오늘 오후반차가 확인되었습니다. 8시 출근(12:01 퇴근)으로 자동 설정됩니다.\n아래 버튼으로 변경할 수 있습니다.");
+                    bot.sendMessage("🌅 전자결재에서 오늘 반차가 확인되었습니다. 8시 출근으로 자동 설정됩니다.\n아래 버튼으로 변경할 수 있습니다.");
                 }
-                return false; // 버튼 메시지는 발송 (9시로 변경 가능)
+                return false; // 버튼 메시지 발송 (변경 가능)
+            }
+
+            if (result.halfDay9.contains(today)) {
+                log.info("===== 전자결재에서 오늘({}) 반차 확인 — HALFDAY_9 자동 설정 =====", today);
+                AttendanceState.set(AttendanceState.Decision.HALFDAY_9);
+                if (bot != null) {
+                    bot.sendMessage("🌅 전자결재에서 오늘 반차가 확인되었습니다. 9시 출근으로 자동 설정됩니다.\n아래 버튼으로 변경할 수 있습니다.");
+                }
+                return false; // 버튼 메시지 발송 (변경 가능)
             }
 
             log.info("전자결재에서 오늘 연차/반차 없음 — 정상 진행");

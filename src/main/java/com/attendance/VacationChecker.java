@@ -20,40 +20,48 @@ import java.util.regex.Pattern;
 
 /**
  * 전자결재 내문서함(기안)에서 올해 휴가신청서 문서를 열어
- * 각 줄의 "종일" 항목과 "4시간"(반차) 항목을 분리해 반환한다.
+ * 휴가 신청 섹션의 각 줄을 분석해 연차/반차 날짜를 반환한다.
+ *
+ * 시간 범위로 HALFDAY_8/9 구분:
+ *   08:xx or 13:xx 시작 → HALFDAY_8 (8시 출근)
+ *   09:xx or 14:xx 시작 → HALFDAY_9 (9시 출근)
  */
 public class VacationChecker {
 
     private static final Logger log = LoggerFactory.getLogger(VacationChecker.class);
 
-    private static final Pattern MONTH_DAY = Pattern.compile("(\\d{1,2})월\\s*(\\d{1,2})일");
+    private static final Pattern MONTH_DAY  = Pattern.compile("(\\d{1,2})월\\s*(\\d{1,2})일");
+    private static final Pattern TIME_RANGE = Pattern.compile("(\\d{1,2}):(\\d{2})~(\\d{1,2}):(\\d{2})");
 
     public static class Result {
-        public final Set<LocalDate> fullDays;  // 종일 연차
-        public final Set<LocalDate> halfDays;  // 오후반차 (4시간)
+        public final Set<LocalDate> fullDays;   // 종일 연차
+        public final Set<LocalDate> halfDay8;   // 반차 — 8시 출근 (HALFDAY_8)
+        public final Set<LocalDate> halfDay9;   // 반차 — 9시 출근 (HALFDAY_9)
 
-        public Result(Set<LocalDate> fullDays, Set<LocalDate> halfDays) {
+        public Result(Set<LocalDate> fullDays, Set<LocalDate> halfDay8, Set<LocalDate> halfDay9) {
             this.fullDays = fullDays;
-            this.halfDays = halfDays;
+            this.halfDay8 = halfDay8;
+            this.halfDay9 = halfDay9;
         }
     }
 
     public static Result parse(WebDriver driver, String approvalUrl) {
         Set<LocalDate> fullDays = new HashSet<>();
-        Set<LocalDate> halfDays = new HashSet<>();
+        Set<LocalDate> halfDay8 = new HashSet<>();
+        Set<LocalDate> halfDay9 = new HashSet<>();
         try {
             String company = extractCompany(approvalUrl);
             List<String> docUrls = collectDocumentUrls(driver, approvalUrl, company);
             log.info("올해 휴가신청서 {}개 상세 분석", docUrls.size());
             for (String url : docUrls) {
-                parseDocumentDetail(driver, url, fullDays, halfDays);
+                parseDocumentDetail(driver, url, fullDays, halfDay8, halfDay9);
             }
-            log.info("연차(종일) {}개: {}", fullDays.size(), fullDays);
-            log.info("반차(4시간) {}개: {}", halfDays.size(), halfDays);
+            log.info("연차(종일): {} | 반차 HALFDAY_8: {} | 반차 HALFDAY_9: {}",
+                    fullDays, halfDay8, halfDay9);
         } catch (Exception e) {
             log.error("전자결재 연차 파싱 실패: {}", e.getMessage());
         }
-        return new Result(fullDays, halfDays);
+        return new Result(fullDays, halfDay8, halfDay9);
     }
 
     private static String extractCompany(String approvalUrl) {
@@ -134,7 +142,9 @@ public class VacationChecker {
     }
 
     private static void parseDocumentDetail(WebDriver driver, String url,
-                                            Set<LocalDate> fullDays, Set<LocalDate> halfDays) {
+                                            Set<LocalDate> fullDays,
+                                            Set<LocalDate> halfDay8,
+                                            Set<LocalDate> halfDay9) {
         try {
             driver.get(url);
             new WebDriverWait(driver, Duration.ofSeconds(15)).until(
@@ -153,20 +163,38 @@ public class VacationChecker {
                 String text = p.getText().trim();
                 if (text.isEmpty()) continue;
 
-                Matcher m = MONTH_DAY.matcher(text);
-                if (!m.find()) continue;
+                Matcher dateMatcher = MONTH_DAY.matcher(text);
+                if (!dateMatcher.find()) continue;
 
                 LocalDate date;
                 try {
-                    date = LocalDate.of(thisYear, Integer.parseInt(m.group(1)), Integer.parseInt(m.group(2)));
+                    date = LocalDate.of(thisYear,
+                            Integer.parseInt(dateMatcher.group(1)),
+                            Integer.parseInt(dateMatcher.group(2)));
                 } catch (Exception ignored) { continue; }
 
                 if (text.contains("종일")) {
                     fullDays.add(date);
                     log.info("연차(종일) 등록: {}", date);
-                } else if (text.contains("4시간") || text.matches(".*\\d{1,2}:\\d{2}~\\d{1,2}:\\d{2}.*")) {
-                    halfDays.add(date);
-                    log.info("반차(4시간) 등록: {}", date);
+                } else {
+                    // 4시간 또는 시간 범위 → 반차
+                    Matcher timeMatcher = TIME_RANGE.matcher(text);
+                    if (timeMatcher.find()) {
+                        int startHour = Integer.parseInt(timeMatcher.group(1));
+                        // 9시 출근: 09:xx(오전반차) or 14:xx(오후반차)
+                        // 8시 출근: 08:xx(오전반차) or 13:xx(오후반차)
+                        if (startHour == 9 || startHour == 14) {
+                            halfDay9.add(date);
+                            log.info("반차(HALFDAY_9, 9시 출근) 등록: {} — {}", date, text);
+                        } else {
+                            halfDay8.add(date);
+                            log.info("반차(HALFDAY_8, 8시 출근) 등록: {} — {}", date, text);
+                        }
+                    } else if (text.contains("4시간")) {
+                        // 시간 범위 없이 "4시간"만 있는 경우 — 기본값 HALFDAY_8
+                        halfDay8.add(date);
+                        log.info("반차(HALFDAY_8, 기본값) 등록: {} — {}", date, text);
+                    }
                 }
             }
         } catch (Exception e) {
