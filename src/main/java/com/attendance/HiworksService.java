@@ -14,10 +14,12 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -29,6 +31,7 @@ public class HiworksService {
     private static final Duration PAGE_LOAD = Duration.ofSeconds(30);
 
     private static final String WORK_PAGE_URL = "https://hr-work.office.hiworks.com/personal/index";
+    private static final String APPROVAL_BOX_URL = "https://approval.office.hiworks.com/%s/approval/document/box/writer";
 
     // 8:20 이전 출근 → 17:00 퇴근 / 8:20 이후 출근 → 18:00 퇴근
     private static final LocalTime CHECKIN_CUTOFF  = LocalTime.of(8, 20);
@@ -146,6 +149,11 @@ public class HiworksService {
     // ──────────────────────────────────────────────
     // 출석체크
     // ──────────────────────────────────────────────
+
+    public Set<LocalDate> fetchVacationDates() {
+        String url = String.format(APPROVAL_BOX_URL, config.getCompany());
+        return VacationChecker.parse(driver, url);
+    }
 
     public boolean checkAndDoAttendance() {
         return checkAndDoAttendance(null);

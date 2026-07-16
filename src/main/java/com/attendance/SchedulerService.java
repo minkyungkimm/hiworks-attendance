@@ -40,8 +40,11 @@ public class SchedulerService {
 
         // 7:30 텔레그램 알림 잡
         if (config.isTelegramConfigured()) {
+            JobDataMap reminderData = new JobDataMap();
+            reminderData.put("config", config);
             JobDetail reminderJob = JobBuilder.newJob(ReminderJob.class)
                     .withIdentity("reminderJob", "hiworks")
+                    .usingJobData(reminderData)
                     .build();
             CronTrigger reminderTrigger = TriggerBuilder.newTrigger()
                     .withIdentity("reminderTrigger", "hiworks")
