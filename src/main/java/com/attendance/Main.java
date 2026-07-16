@@ -48,6 +48,16 @@ public class Main {
         Thread.currentThread().join();
     }
 
+    private static String halfDayLabel(AttendanceState.Decision d) {
+        switch (d) {
+            case MORNING_HALFDAY_8: return "오전반차 8시(12:59 출근/17:01 퇴근)";
+            case MORNING_HALFDAY_9: return "오전반차 9시(13:59 출근/18:01 퇴근)";
+            case HALFDAY_8:         return "오후반차 8시(07:59 출근/12:01 퇴근)";
+            case HALFDAY_9:         return "오후반차 9시(08:59 출근/14:01 퇴근)";
+            default:                return d.name();
+        }
+    }
+
     private static void runVacationCheck(AppConfig config) {
         HiworksService service = new HiworksService(config);
         try {
@@ -61,7 +71,7 @@ public class Main {
             log.info("=== 반차 {}개 ===", result.halfDays.size());
             result.halfDays.entrySet().stream()
                     .sorted(java.util.Map.Entry.comparingByKey())
-                    .forEach(e -> log.info("  [{}] {}", e.getValue(), e.getKey()));
+                    .forEach(e -> log.info("  [{}] {}", halfDayLabel(e.getValue()), e.getKey()));
 
             AttendanceState.Decision todayHalf = result.halfDays.get(today);
             log.info("오늘({}) 연차: {} / 반차: {}",
