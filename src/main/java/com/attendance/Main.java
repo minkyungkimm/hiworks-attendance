@@ -76,8 +76,8 @@ public class Main {
             AttendanceState.Decision todayHalf = result.halfDays.get(today);
             log.info("오늘({}) 연차: {} / 반차: {}",
                     today,
-                    result.fullDays.contains(today),
-                    todayHalf != null ? todayHalf : "없음");
+                    result.fullDays.contains(today) ? "있음" : "없음",
+                    todayHalf != null ? halfDayLabel(todayHalf) : "없음");
         } catch (Exception e) {
             log.error("오류 발생: {}", e.getMessage(), e);
         } finally {
