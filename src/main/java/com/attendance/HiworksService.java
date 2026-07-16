@@ -349,41 +349,14 @@ public class HiworksService {
     // ──────────────────────────────────────────────
 
     private boolean isAlreadyCheckedOut() {
-        try {
-            String pageText = driver.findElement(By.tagName("body")).getText();
-            String[] lines = pageText.split("[\\n\\r]+");
-
-            boolean inSection = false;
-            for (String rawLine : lines) {
-                String line = rawLine.trim();
-
-                // 우측 "근무현황" 패널 헤더 감지
-                // "오늘 근무현황" / "주간 근무현황" 같은 상위 섹션 제목은 제외
-                if (line.contains("근무현황")
-                        && !line.contains("오늘") && !line.contains("주간") && !line.contains("월간")) {
-                    inSection = true;
-                    continue;
-                }
-
-                // 주간/월간 근무현황 등 다음 섹션이 나오면 탐색 종료
-                if (inSection && (line.contains("주간") || line.contains("월간"))) {
-                    break;
-                }
-
-                // 근무현황 섹션 안에서 퇴근 기록 탐색 (퇴근하기 버튼 텍스트는 제외)
-                if (inSection && line.contains("퇴근") && !line.contains("퇴근하기")) {
-                    log.info("근무현황 섹션에서 퇴근 기록 확인됨: {}", line);
-                    return true;
-                }
-            }
-
-            log.info("근무현황 섹션에 퇴근 기록 없음 → 퇴근 미완료");
-            return false;
-
-        } catch (Exception e) {
-            log.error("퇴근 여부 확인 중 오류: {}", e.getMessage());
-            return false;
+        // 퇴근하기 버튼이 비활성(disabled)이거나 없으면 이미 퇴근된 상태
+        WebElement checkoutBtn = findVisible(By.xpath("//button[contains(.,'퇴근하기') and not(@disabled)]"));
+        if (checkoutBtn == null) {
+            log.info("퇴근하기 버튼 없음 또는 비활성 → 이미 퇴근 처리됨");
+            return true;
         }
+        log.info("퇴근하기 버튼 활성 → 퇴근 미완료");
+        return false;
     }
 
     private WebElement findCheckOutButton() {
@@ -507,38 +480,14 @@ public class HiworksService {
     }
 
     private boolean isAlreadyCheckedIn() {
-        try {
-            String pageText = driver.findElement(By.tagName("body")).getText();
-            String[] lines = pageText.split("[\\n\\r]+");
-
-            boolean inSection = false;
-            for (String rawLine : lines) {
-                String line = rawLine.trim();
-
-                if (line.contains("근무현황")
-                        && !line.contains("오늘") && !line.contains("주간") && !line.contains("월간")) {
-                    inSection = true;
-                    continue;
-                }
-
-                if (inSection && (line.contains("주간") || line.contains("월간"))) {
-                    break;
-                }
-
-                // 근무현황 섹션에서 "출근" 기록 탐색 ("출근하기" 버튼 텍스트 제외)
-                if (inSection && line.contains("출근") && !line.contains("출근하기")) {
-                    log.info("근무현황 섹션에서 출근 기록 확인됨: {}", line);
-                    return true;
-                }
-            }
-
-            log.info("근무현황 섹션에 출근 기록 없음 → 출근 미완료");
-            return false;
-
-        } catch (Exception e) {
-            log.error("출근 여부 확인 중 오류: {}", e.getMessage());
-            return false;
+        // 출근하기 버튼이 비활성(disabled)이거나 없으면 이미 출근된 상태
+        WebElement checkinBtn = findVisible(By.xpath("//button[contains(.,'출근하기') and not(@disabled)]"));
+        if (checkinBtn == null) {
+            log.info("출근하기 버튼 없음 또는 비활성 → 이미 출근 처리됨");
+            return true;
         }
+        log.info("출근하기 버튼 활성 → 출근 미완료");
+        return false;
     }
 
     private WebElement findCheckInButton() {
