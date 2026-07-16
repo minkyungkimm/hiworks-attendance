@@ -365,16 +365,7 @@ public class HiworksService {
     }
 
     private WebElement findCheckOutButton() {
-        String[] xpaths = {
-                "//button[normalize-space()='퇴근하기']",
-                "//button[contains(.,'퇴근하기')]",
-                "//button[.//span[contains(text(),'퇴근하기')]]",
-        };
-        for (String xpath : xpaths) {
-            WebElement el = findVisible(By.xpath(xpath));
-            if (el != null) return el;
-        }
-        return null;
+        return findVisible(By.xpath("//button[contains(.,'퇴근하기')]"));
     }
 
     private void waitForWorkPageContent() {
@@ -529,25 +520,7 @@ public class HiworksService {
     }
 
     private WebElement findCheckInButton() {
-        String[] cssSelectors = {
-                ".commute-btn", ".btn-commute", ".work-start-btn",
-                "[class*='commute']", "[id*='commute']", ".attendance-btn",
-        };
-        for (String sel : cssSelectors) {
-            WebElement el = findVisible(By.cssSelector(sel));
-            if (el != null) return el;
-        }
-
-        String[] xpaths = {
-                "//button[normalize-space()='출근하기']",
-                "//button[contains(.,'출근하기')]",
-                "//button[.//span[contains(text(),'출근하기')]]",
-        };
-        for (String xpath : xpaths) {
-            WebElement el = findVisible(By.xpath(xpath));
-            if (el != null) return el;
-        }
-        return null;
+        return findVisible(By.xpath("//button[contains(.,'출근하기') and not(@disabled)]"));
     }
 
     private void handleConfirmation() {
