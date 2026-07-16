@@ -26,6 +26,9 @@ schedule.reminder.cron=0 30 7 ? * MON-FRI
 schedule.checkin8.cron=30 58 7 ? * MON-FRI
 # 9시 출근 자동 체크 (텔레그램에서 "9시"를 선택했을 때만 실행)
 schedule.checkin9.cron=30 58 8 ? * MON-FRI
+# 오전반차 출근 (오전반차 8시 선택 시 12:59, 오전반차 9시 선택 시 13:59 출근)
+schedule.morningcheckin13.cron=30 57 12 ? * MON-FRI
+schedule.morningcheckin14.cron=30 57 13 ? * MON-FRI
 # 반차 퇴근 (텔레그램에서 "오후 반차" 선택 시에만 실행)
 schedule.halfday12.cron=30 0 12 ? * MON-FRI
 schedule.halfday14.cron=30 0 14 ? * MON-FRI

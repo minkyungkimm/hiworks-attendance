@@ -45,8 +45,8 @@ public class AppConfig {
         this.telegramBotToken = props.getProperty("telegram.bot.token", "");
         this.telegramChatId = props.getProperty("telegram.chat.id", "");
         this.reminderCron = props.getProperty("schedule.reminder.cron", "0 30 7 ? * MON-FRI");
-        this.checkin8Cron = props.getProperty("schedule.checkin8.cron", "0 0 8 ? * MON-FRI");
-        this.checkin9Cron  = props.getProperty("schedule.checkin9.cron",  "0 0 9 ? * MON-FRI");
+        this.checkin8Cron = props.getProperty("schedule.checkin8.cron", "30 58 7 ? * MON-FRI");
+        this.checkin9Cron  = props.getProperty("schedule.checkin9.cron",  "30 58 8 ? * MON-FRI");
         this.halfday12Cron = props.getProperty("schedule.halfday12.cron", "0 0 12 ? * MON-FRI");
         this.halfday14Cron = props.getProperty("schedule.halfday14.cron", "0 0 14 ? * MON-FRI");
         this.morningCheckin13Cron = props.getProperty("schedule.morningcheckin13.cron", "0 55 12 ? * MON-FRI");
