@@ -147,18 +147,28 @@ public class VacationChecker {
                                             Map<LocalDate, AttendanceState.Decision> halfDays) {
         try {
             driver.get(url);
-            new WebDriverWait(driver, Duration.ofSeconds(15)).until(
-                    ExpectedConditions.presenceOfElementLocated(
-                            By.xpath("//th[contains(text(),'휴가 신청')]")
-                    )
-            );
-            Thread.sleep(800);
 
+            // 신/구 레이아웃 중 하나가 로드될 때까지 대기
+            // 신규: thead에 '휴가 종류' th / 구: tbody에 '휴가 신청' th
+            new WebDriverWait(driver, Duration.ofSeconds(15)).until(d -> {
+                return !d.findElements(By.xpath("//th[text()='휴가 종류']")).isEmpty()
+                        || !d.findElements(By.xpath("//th[contains(text(),'휴가 신청')]")).isEmpty();
+            });
+
+            // 신규 레이아웃: thead에 '휴가 종류' 헤더가 있는 테이블
+            List<WebElement> settingRows = driver.findElements(By.xpath(
+                    "//table[.//th[text()='휴가 종류']]//tbody/tr"));
+            if (!settingRows.isEmpty()) {
+                parseNewLayout(settingRows, fullDays, halfDays);
+                return;
+            }
+
+            // 구 레이아웃: 휴가 신청 th + p 태그
+            Thread.sleep(800);
             int thisYear = LocalDate.now().getYear();
             List<WebElement> paragraphs = driver.findElements(
                     By.xpath("//tr[th[contains(text(),'휴가 신청')]]/td//p")
             );
-
             for (WebElement p : paragraphs) {
                 String text = p.getText().trim();
                 if (text.isEmpty()) continue;
@@ -185,6 +195,45 @@ public class VacationChecker {
             }
         } catch (Exception e) {
             log.warn("문서 상세 파싱 실패 ({}): {}", url, e.getMessage());
+        }
+    }
+
+    private static void parseNewLayout(List<WebElement> rows,
+                                       Set<LocalDate> fullDays,
+                                       Map<LocalDate, AttendanceState.Decision> halfDays) {
+        int thisYear = LocalDate.now().getYear();
+        for (WebElement row : rows) {
+            try {
+                List<WebElement> cells = row.findElements(By.tagName("td"));
+                if (cells.size() < 3) continue;
+
+                String type     = cells.get(0).getText().trim(); // 연차 / 오전반차 / 오후반차
+                String dateText = cells.get(1).getText().trim(); // 2026년 8월 14일(금)
+                String duration = cells.get(2).getText().trim(); // 1일 / 4시간
+
+                Matcher m = MONTH_DAY.matcher(dateText);
+                if (!m.find()) continue;
+
+                LocalDate date;
+                try {
+                    date = LocalDate.of(thisYear,
+                            Integer.parseInt(m.group(1)),
+                            Integer.parseInt(m.group(2)));
+                } catch (Exception ignored) { continue; }
+
+                if (duration.contains("일")) {
+                    fullDays.add(date);
+                    log.info("[연차] 종일 등록: {}", date);
+                } else {
+                    // 신규 레이아웃은 시간 범위가 없어 8/9시 구분 불가 → 기본 8시 적용
+                    AttendanceState.Decision decision = type.contains("오전")
+                            ? AttendanceState.Decision.MORNING_HALFDAY_8
+                            : AttendanceState.Decision.HALFDAY_8;
+                    halfDays.put(date, decision);
+                    logHalfDay(date, decision, dateText);
+                    log.warn("신규 레이아웃: {}({}) 반차 출근 시각 불명 — 기본 8시 적용. 텔레그램에서 확인하세요.", date, type);
+                }
+            } catch (Exception ignored) {}
         }
     }
 

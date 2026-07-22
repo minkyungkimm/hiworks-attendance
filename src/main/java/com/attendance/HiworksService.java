@@ -160,11 +160,20 @@ public class HiworksService {
     }
 
     public boolean checkAndDoAttendance(LocalTime targetTime) {
+        return checkAndDoAttendance(targetTime, -1);
+    }
+
+    public boolean checkAndDoAttendance(LocalTime targetTime, int scheduledHour) {
         log.info("근무 페이지 이동: {}", WORK_PAGE_URL);
         driver.get(WORK_PAGE_URL);
         waitForWorkPageContent();
         takeScreenshot("02-work-page");
-        if (targetTime != null) waitUntilTime(targetTime);
+        if (targetTime != null) {
+            if (!waitUntilTime(targetTime, scheduledHour)) {
+                log.info("상태 변경으로 {}시 잡 취소 — 브라우저 종료", scheduledHour);
+                return false;
+            }
+        }
         return tryAttendanceOnCurrentPage();
     }
 
@@ -399,16 +408,34 @@ public class HiworksService {
     }
 
     private void waitUntilTime(LocalTime target) {
+        waitUntilTime(target, -1);
+    }
+
+    private boolean waitUntilTime(LocalTime target, int scheduledHour) {
         LocalTime now = LocalTime.now();
-        if (now.isBefore(target)) {
-            long millis = java.time.Duration.between(now, target).toMillis();
-            log.info("정각 클릭 대기 중... {} 까지 {}초 남음", target, millis / 1000);
+        if (!now.isBefore(target)) return true;
+
+        long totalMillis = java.time.Duration.between(now, target).toMillis();
+        log.info("정각 클릭 대기 중... {} 까지 {}초 남음", target, totalMillis / 1000);
+
+        long deadline = System.currentTimeMillis() + totalMillis;
+        while (System.currentTimeMillis() < deadline) {
+            if (scheduledHour == 8) {
+                AttendanceState.Decision state = AttendanceState.get();
+                if (state == AttendanceState.Decision.CHECKIN_9
+                        || state == AttendanceState.Decision.HALFDAY_9) {
+                    log.info("대기 중 {}로 변경됨 — 8시 잡 취소, 9시 잡에 양보", state);
+                    return false;
+                }
+            }
             try {
-                Thread.sleep(millis);
+                Thread.sleep(1000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+                return false;
             }
         }
+        return true;
     }
 
     // body가 실제 내용을 갖고, 로딩 인디케이터가 사라질 때까지 대기
