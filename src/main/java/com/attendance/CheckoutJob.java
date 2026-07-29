@@ -40,6 +40,15 @@ public class CheckoutJob implements Job {
             log.info("===== 오후반차로 {}시 정규 퇴근 잡 건너뜀 =====", scheduledHour);
             return;
         }
+        // 정규 출근 라우팅: CHECKIN_8 → 17시, CHECKIN_9 → 18시
+        if (scheduledHour == 18 && state == AttendanceState.Decision.CHECKIN_8) {
+            log.info("===== CHECKIN_8 — 18시 잡 건너뜀 (17시에 퇴근) =====");
+            return;
+        }
+        if (scheduledHour == 17 && state == AttendanceState.Decision.CHECKIN_9) {
+            log.info("===== CHECKIN_9 — 17시 잡 건너뜀 (18시에 퇴근) =====");
+            return;
+        }
         // 오전반차 라우팅: MORNING_HALFDAY_8 → 17시, MORNING_HALFDAY_9 → 18시
         if (scheduledHour == 17 && state == AttendanceState.Decision.MORNING_HALFDAY_9) {
             log.info("===== 오전반차(9시) — 17시 잡 건너뜀, 18시에 퇴근 =====");
